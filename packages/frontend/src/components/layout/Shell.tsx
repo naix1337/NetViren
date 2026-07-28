@@ -13,7 +13,7 @@ import {
   Bot,
   FileSearch,
   Network,
-  Timeline,
+  History,
   FileText,
   Settings,
 } from 'lucide-react';
@@ -41,7 +41,7 @@ const pathIcons: Record<string, React.ReactNode> = {
   '/agents': <Bot className="h-4 w-4" />,
   '/files': <FileSearch className="h-4 w-4" />,
   '/packets': <Network className="h-4 w-4" />,
-  '/timeline': <Timeline className="h-4 w-4" />,
+  '/timeline': <History className="h-4 w-4" />,
   '/alerts': <Bell className="h-4 w-4" />,
   '/reports': <FileText className="h-4 w-4" />,
   '/settings': <Settings className="h-4 w-4" />,
