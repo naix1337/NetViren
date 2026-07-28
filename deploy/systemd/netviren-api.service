@@ -1,0 +1,21 @@
+﻿[Unit]
+Description=NetViren API Server
+After=network.target
+
+[Service]
+Type=simple
+User=netviren
+WorkingDirectory=/opt/netviren/packages/api
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=DATABASE_PATH=/var/lib/netviren/db/netviren.db
+Environment=AUTH_SECRET=<set-by-install-script>
+Environment=API_PORT=4000
+Environment=FRONTEND_URL=http://localhost:3000
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

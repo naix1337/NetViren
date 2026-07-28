@@ -1,0 +1,17 @@
+﻿[Unit]
+Description=NetViren Scanner Worker
+After=network.target netviren-api.service
+
+[Service]
+Type=simple
+User=netviren
+WorkingDirectory=/opt/netviren/workers/scanner
+ExecStart=/usr/bin/python3 main.py
+Restart=always
+RestartSec=10
+Environment=DATABASE_PATH=/var/lib/netviren/db/netviren.db
+Environment=PORT_RANGES=20-25,53,80,110,143,443,445,993,995,1433,1521,2049,3306,3389,5432,5900,6379,8080,8443,27017
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+
+[Install]
+WantedBy=multi-user.target

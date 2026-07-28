@@ -5,13 +5,16 @@ import { nanoid } from 'nanoid';
 import bcrypt from 'bcryptjs';
 
 export async function agentRoutes(app: FastifyInstance): Promise<void> {
-  // Protected routes require auth
-  app.addHook('preHandler', (req, _rep, done) => {
-    if (req.url.startsWith('/api/agents/register') || req.url.startsWith('/api/agents/')) {
-      // Allow agent registration and heartbeat without JWT; they use token auth
-      done();
-    } else {
-      authMiddleware(req, _rep).then(() => done()).catch(() => done());
+  // Agent registration and heartbeat use token-based auth (no JWT)
+  // All other agent routes require JWT authentication
+  app.addHook('preHandler', async (req, reply) => {
+    const path = req.url;
+    if (path === '/api/agents/register' || path.match(/^\/api\/agents\/[^/]+\/heartbeat$/)) {
+      return; // Allow without JWT
+    }
+    if (path.startsWith('/api/agents/')) {
+      await authMiddleware(req, reply);
+      if (reply.sent) return;
     }
   });
 

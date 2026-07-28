@@ -1,0 +1,18 @@
+﻿[Unit]
+Description=NetViren Packet Capture Service
+After=network-online.target
+
+[Service]
+Type=simple
+User=netviren
+WorkingDirectory=/opt/netviren/workers/packet-capture
+ExecStart=/usr/bin/python3 main.py
+Restart=always
+RestartSec=10
+Environment=DATABASE_PATH=/var/lib/netviren/db/netviren.db
+Environment=PACKET_DIR=/var/lib/netviren/packets
+Environment=CAPTURE_INTERFACE=eth0
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,18 @@
+﻿[Unit]
+Description=NetViren Agent Handler
+After=network.target netviren-api.service
+
+[Service]
+Type=simple
+User=netviren
+WorkingDirectory=/opt/netviren/packages/api
+ExecStart=/usr/bin/node dist/agent-handler.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=DATABASE_PATH=/var/lib/netviren/db/netviren.db
+Environment=AUTH_SECRET=<set-by-install-script>
+Environment=AGENT_HANDLER_PORT=4001
+
+[Install]
+WantedBy=multi-user.target
