@@ -17,6 +17,7 @@ import { reportRoutes } from './modules/reports/routes.js';
 import { settingRoutes } from './modules/settings/routes.js';
 import { userRoutes } from './modules/users/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
+import { authMiddleware } from './middleware/auth.js';
 
 export async function buildApp() {
   const env = getEnv();
@@ -32,9 +33,9 @@ export async function buildApp() {
 
   setWsInstance(app);
 
-  // WebSocket for dashboard live updates
+  // WebSocket for dashboard live updates (authenticated)
   app.register(async function (fastify) {
-    fastify.get('/ws', { websocket: true }, (socket, req) => {
+    fastify.get('/ws', { websocket: true, preHandler: authMiddleware }, (socket, req) => {
       socket.on('message', (data: Buffer) => { /* handle incoming WS messages */ });
       socket.on('close', () => { /* cleanup */ });
     });
