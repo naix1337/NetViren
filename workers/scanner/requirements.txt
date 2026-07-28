@@ -1,0 +1,2 @@
+scapy>=2.6.0
+python-nmap>=0.7.0
