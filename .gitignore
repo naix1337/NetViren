@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.next/
+__pycache__/
+*.pyc
+.env
+*.db
+*.pcap
+packets/

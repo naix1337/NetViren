@@ -1,0 +1,15 @@
+{
+  "name": "netviren",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "dev:api": "npm run dev -w packages/api",
+    "dev:frontend": "npm run dev -w packages/frontend",
+    "build:api": "npm run build -w packages/api",
+    "build:frontend": "npm run build -w packages/frontend",
+    "build": "npm run build:api && npm run build:frontend",
+    "start:api": "npm run start -w packages/api",
+    "start:frontend": "npm run start -w packages/frontend"
+  }
+}
