@@ -35,7 +35,7 @@ export async function buildApp() {
   // WebSocket for dashboard live updates
   app.register(async function (fastify) {
     fastify.get('/ws', { websocket: true }, (socket, req) => {
-      socket.on('message', (data) => { /* handle incoming WS messages */ });
+      socket.on('message', (data: Buffer) => { /* handle incoming WS messages */ });
       socket.on('close', () => { /* cleanup */ });
     });
   });
