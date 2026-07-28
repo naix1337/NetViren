@@ -1,9 +1,21 @@
 import nmap
+import ipaddress
 from typing import Optional, Dict
+
+
+def _validate_target(target: str) -> None:
+    """Validate that target is a valid IP or CIDR, not an nmap flag."""
+    if target.startswith('-'):
+        raise ValueError(f"Invalid scan target (looks like a flag): {target}")
+    try:
+        ipaddress.ip_network(target, strict=False)
+    except ValueError:
+        raise ValueError(f"Invalid scan target: {target}")
 
 
 def detect_os(target: str) -> Optional[Dict]:
     """Perform OS detection using Nmap OS fingerprinting."""
+    _validate_target(target)
     nm = nmap.PortScanner()
     try:
         nm.scan(target, arguments='-O -T4')

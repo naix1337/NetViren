@@ -1,0 +1,300 @@
+
+**Files:**
+- Create: `workers/scanner/main.py`
+- Create: `workers/scanner/arp_scanner.py`
+- Create: `workers/scanner/port_scanner.py`
+- Create: `workers/scanner/os_detection.py`
+- Create: `workers/scanner/db.py`
+- Create: `workers/scanner/requirements.txt`
+
+- [ ] **Step 1: Create requirements.txt**
+
+```
+scapy>=2.6.0
+python-nmap>=0.7.0
+```
+
+- [ ] **Step 2: Create db.py** — Direct SQLite access (same DB file as API)
+
+```python
+import sqlite3
+import os
+
+DB_PATH = os.environ.get('DATABASE_PATH', '/var/lib/netviren/db/netviren.db')
+
+def get_db() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    return conn
+```
+
+- [ ] **Step 3: Create arp_scanner.py**
+
+```python
+import ipaddress
+from typing import List, Dict
+from scapy.all import ARP, Ether, srp
+
+def scan_arp(network: str = "192.168.1.0/24", timeout: int = 3) -> List[Dict]:
+    """Perform ARP scan on local network. Returns list of discovered devices."""
+    arp = ARP(pdst=network)
+    ether = Ether(dst="ff:ff:ff:ff:ff:ff")
+    packet = ether / arp
+    result = srp(packet, timeout=timeout, verbose=0)[0]
+    
+    devices = []
+    for sent, received in result:
+        devices.append({
+            'ip_address': received.psrc,
+            'mac_address': received.hwsrc,
+            'vendor': '',  # Could be enriched via MAC OUI lookup
+            'first_seen': '',  # Set by caller
+            'last_seen': '',
+            'is_online': True,
+        })
+    return devices
+```
+
+- [ ] **Step 4: Create port_scanner.py**
+
+```python
+import nmap
+from typing import List, Dict
+
+def scan_ports_tcp(target: str, port_range: str = "1-1000") -> List[Dict]:
+    """Perform TCP port scan using python-nmap."""
+    nm = nmap.PortScanner()
+    nm.scan(target, port_range, arguments='-sT -T4')
+    
+    ports = []
+    if target in nm.all_hosts():
+        for proto in nm[target].all_protocols():
+            port_data = nm[target][proto]
+            for port, data in port_data.items():
+                ports.append({
+                    'port': port,
+                    'protocol': proto,
+                    'state': data.get('state', 'unknown'),
+                    'service': data.get('name', ''),
+                    'service_version': data.get('version', ''),
+                })
+    return ports
+
+def scan_ports_udp(target: str, port_range: str = "1-500") -> List[Dict]:
+    """Perform UDP port scan."""
+    nm = nmap.PortScanner()
+    nm.scan(target, port_range, arguments='-sU -T4')
+    
+    ports = []
+    if target in nm.all_hosts():
+        for proto in nm[target].all_protocols():
+            port_data = nm[target][proto]
+            for port, data in port_data.items():
+                ports.append({
+                    'port': port,
+                    'protocol': proto,
+                    'state': data.get('state', 'unknown'),
+                    'service': data.get('name', ''),
+                    'service_version': data.get('version', ''),
+                })
+    return ports
+```
+
+- [ ] **Step 5: Create os_detection.py**
+
+```python
+import nmap
+from typing import Optional, Dict
+
+def detect_os(target: str) -> Optional[Dict]:
+    """Perform OS detection using Nmap OS fingerprinting."""
+    nm = nmap.PortScanner()
+    try:
+        nm.scan(target, arguments='-O -T4')
+        if target in nm.all_hosts() and 'osmatch' in nm[target]:
+            matches = nm[target]['osmatch']
+            if matches:
+                best = matches[0]
+                return {
+                    'os_detected': best.get('name', ''),
+                    'os_version': best.get('osclass', [{}])[0].get('osgen', '') if best.get('osclass') else '',
+                    'accuracy': best.get('accuracy', '0'),
+                }
+    except Exception:
+        pass
+    return None
+```
+
+- [ ] **Step 6: Create main.py** — Worker entry point with polling loop
+
+```python
+#!/usr/bin/env python3
+"""NetViren Scanner Worker. Polls DB for pending scan jobs and executes them."""
+
+import time
+import logging
+import os
+import sys
+from datetime import datetime
+from typing import List, Dict
+
+from db import get_db
+from arp_scanner import scan_arp
+from port_scanner import scan_ports_tcp, scan_ports_udp
+from os_detection import detect_os
+
+logging.basicConfig(
+    level=getattr(logging, os.environ.get('LOG_LEVEL', 'info').upper()),
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
+logger = logging.getLogger('netviren-scanner')
+
+def get_pending_scans(db) -> List[Dict]:
+    cur = db.execute("SELECT * FROM scans WHERE status = 'pending' ORDER BY started_at ASC LIMIT 1")
+    return [dict(row) for row in cur.fetchall()]
+
+def execute_scan(db, scan: Dict):
+    scan_id = scan['id']
+    scan_type = scan['scan_type']
+    target = scan.get('target') or '192.168.1.0/24'
+    logger.info(f"Starting scan {scan_id}: type={scan_type}, target={target}")
+
+    db.execute("UPDATE scans SET status = 'running' WHERE id = ?", (scan_id,))
+    db.commit()
+
+    try:
+        if scan_type in ('arp', 'full'):
+            # ARP scan
+            devices = scan_arp(network=target)
+            for dev in devices:
+                existing = db.execute(
+                    "SELECT id FROM devices WHERE ip_address = ?", (dev['ip_address'],)
+                ).fetchone()
+                now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+                if existing:
+                    db.execute(
+                        "UPDATE devices SET last_seen = ?, is_online = 1, updated_at = ? WHERE id = ?",
+                        (now, now, existing['id'])
+                    )
+                else:
+                    import uuid
+                    dev_id = str(uuid.uuid4())
+                    db.execute(
+                        """INSERT INTO devices (id, ip_address, mac_address, vendor, first_seen, last_seen, is_online)
+                           VALUES (?, ?, ?, ?, ?, ?, 1)""",
+                        (dev_id, dev['ip_address'], dev['mac_address'], dev.get('vendor', ''), now, now)
+                    )
+            logger.info(f"ARP scan found {len(devices)} devices")
+
+        if scan_type in ('port_tcp', 'full'):
+            # TCP port scan on all discovered devices
+            hosts = db.execute("SELECT ip_address FROM devices WHERE is_online = 1").fetchall()
+            port_range = os.environ.get('PORT_RANGES', '20-25,53,80,110,143,443,445,993,995,1433,1521,2049,3306,3389,5432,5900,6379,8080,8443,27017')
+            for host in hosts:
+                ports = scan_ports_tcp(host['ip_address'], port_range)
+                for p in ports:
+                    device = db.execute("SELECT id FROM devices WHERE ip_address = ?", (host['ip_address'],)).fetchone()
+                    if device:
+                        existing_port = db.execute(
+                            "SELECT id FROM device_ports WHERE device_id = ? AND port = ? AND protocol = ?",
+                            (device['id'], p['port'], p['protocol'])
+                        ).fetchone()
+                        now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+                        if existing_port:
+                            db.execute(
+                                "UPDATE device_ports SET state = ?, service = ?, service_version = ?, last_seen = ? WHERE id = ?",
+                                (p['state'], p['service'], p.get('service_version', ''), now, existing_port['id'])
+                            )
+                        else:
+                            import uuid
+                            db.execute(
+                                """INSERT INTO device_ports (id, device_id, port, protocol, state, service, service_version, first_seen, last_seen)
+                                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                (str(uuid.uuid4()), device['id'], p['port'], p['protocol'],
+                                 p['state'], p['service'], p.get('service_version', ''), now, now)
+                            )
+                db.commit()
+
+        if scan_type in ('os', 'full'):
+            hosts = db.execute("SELECT ip_address, id FROM devices WHERE is_online = 1").fetchall()
+            for host in hosts:
+                os_info = detect_os(host['ip_address'])
+                if os_info:
+                    db.execute(
+                        "UPDATE devices SET os_detected = ?, os_version = ? WHERE id = ?",
+                        (os_info['os_detected'], os_info.get('os_version', ''), host['id'])
+                    )
+                db.commit()
+
+        now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+        device_count = db.execute("SELECT COUNT(*) as c FROM devices").fetchone()['c']
+        port_count = db.execute("SELECT COUNT(*) as c FROM device_ports").fetchone()['c']
+        db.execute(
+            "UPDATE scans SET status = 'completed', completed_at = ?, devices_found = ?, ports_found = ? WHERE id = ?",
+            (now, device_count, port_count, scan_id)
+        )
+        db.commit()
+        logger.info(f"Scan {scan_id} completed")
+
+    except Exception as e:
+        logger.error(f"Scan {scan_id} failed: {e}")
+        db.execute(
+            "UPDATE scans SET status = 'failed', error = ?, completed_at = ? WHERE id = ?",
+            (str(e), datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S'), scan_id)
+        )
+        db.commit()
+
+def run_continuous():
+    """Continuous ARP monitoring for new/lost devices."""
+    db = get_db()
+    known_ips = set()
+    
+    while True:
+        try:
+            active_ips = {d['ip_address'] for d in scan_arp(timeout=2)}
+            now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+
+            for ip in active_ips:
+                dev = db.execute("SELECT id FROM devices WHERE ip_address = ?", (ip,)).fetchone()
+                if dev:
+                    db.execute("UPDATE devices SET last_seen = ?, is_online = 1 WHERE id = ?", (now, dev['id']))
+                # New devices are discovered via ARP scan, not continuous monitoring
+            
+            # Check for devices that disappeared
+            db_devices = db.execute("SELECT id, ip_address FROM devices WHERE is_online = 1").fetchall()
+            for dev in db_devices:
+                if dev['ip_address'] not in active_ips:
+                    logger.info(f"Device {dev['ip_address']} went offline")
+                    db.execute("UPDATE devices SET is_online = 0, updated_at = ? WHERE id = ?", (now, dev['id']))
+            
+            db.commit()
+        except Exception as e:
+            logger.error(f"Continuous monitoring error: {e}")
+        
+        time.sleep(60)  # Check every 60 seconds
+
+def main():
+    logger.info("NetViren Scanner Worker starting...")
+    
+    # Main scan job loop
+    while True:
+        db = get_db()
+        try:
+            scans = get_pending_scans(db)
+            for scan in scans:
+                execute_scan(db, scan)
+        except Exception as e:
+            logger.error(f"Main loop error: {e}")
+        finally:
+            db.close()
+        
+        time.sleep(10)  # Poll every 10 seconds
+
+if __name__ == '__main__':
+    main()
+```
+
+---
+

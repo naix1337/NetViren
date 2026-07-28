@@ -1,3 +1,19 @@
+
+**Files:**
+- Create: `agents/linux/agent.py`
+- Create: `agents/linux/requirements.txt`
+- Create: `agents/linux/install.sh`
+
+- [ ] **Step 1: Create requirements.txt**
+
+```
+requests>=2.31.0
+psutil>=5.9.0
+```
+
+- [ ] **Step 2: Create agent.py**
+
+```python
 #!/usr/bin/env python3
 """NetViren Linux Agent — lightweight security monitoring agent."""
 
@@ -34,8 +50,7 @@ class NetVirenAgent:
 
     def save_config(self):
         os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-        fd = os.open(CONFIG_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, 'w') as f:
+        with open(CONFIG_PATH, 'w') as f:
             json.dump(self.config, f, indent=2)
 
     def get_machine_id(self):
@@ -191,3 +206,7 @@ class NetVirenAgent:
 if __name__ == '__main__':
     agent = NetVirenAgent()
     agent.run()
+```
+
+---
+
