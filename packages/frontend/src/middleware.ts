@@ -1,27 +1,19 @@
-import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-export default withAuth(
-  function middleware(req) {
-    const token = req.nextauth.token;
-    const path = req.nextUrl.pathname;
+export default function middleware(req: NextRequest) {
+  const token = req.cookies.get('next-auth.session-token')?.value
+    || req.cookies.get('__Secure-next-auth.session-token')?.value;
+  const path = req.nextUrl.pathname;
 
-    // Admin-only routes
-    if (path.startsWith('/settings') && token?.role !== 'admin') {
-      return NextResponse.redirect(new URL('/', req.url));
-    }
-    // Analyst+Admin routes
-    if ((path.startsWith('/reports') || path.startsWith('/alerts')) && token?.role === 'viewer') {
-      return NextResponse.redirect(new URL('/', req.url));
-    }
-    return NextResponse.next();
-  },
-  {
-    callbacks: { authorized: ({ token }) => !!token },
-    pages: { signIn: '/login' },
+  // If no token and trying to access protected routes, redirect to login
+  if (!token && !path.startsWith('/login')) {
+    return NextResponse.redirect(new URL('/login', req.url));
   }
-);
+
+  return NextResponse.next();
+}
 
 export const config = {
-  matcher: ['/((?!api|_next|login|register).*)'],
+  matcher: ['/((?!api|_next|_next/static|_next/image|favicon.ico).*)'],
 };
