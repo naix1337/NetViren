@@ -131,7 +131,7 @@ export default function LoginPage() {
               type="button"
               variant="secondary"
               className="w-full"
-              onClick={() => window.open('http://195.20.225.4:4000/api/auth/google', '_self')}
+              onClick={() => window.open('/api/auth/google', '_self')}
               disabled={isLoading}
             >
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -159,7 +159,7 @@ export default function LoginPage() {
               type="button"
               variant="secondary"
               className="w-full"
-              onClick={() => window.open(`${API_URL}/api/auth/github`, '_self')}
+              onClick={() => window.open('/api/auth/github', '_self')}
               disabled={isLoading}
             >
               <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
