@@ -107,38 +107,49 @@ echo ""
 # ───── 1. Template ─────
 step "Suche Debian 12 Template..."
 TEMPLATE_PATH=""
-for ST in $(pvesm status 2>/dev/null | awk '{print $1}'); do
-  TEMPLATE_PATH=$(pvesm list "$ST" 2>/dev/null | grep -i "debian.*12.*standard" | awk '{print $1}' | head -1)
+
+# In allen vorhandenen Storages suchen
+for ST in $(pvesm status 2>/dev/null | tail -n +2 | awk '{print $1}'); do
+  TEMPLATE_PATH=$(pvesm list "$ST" 2>/dev/null | grep -i "debian" | awk '{print $1}' | head -1)
   [[ -n "$TEMPLATE_PATH" ]] && break
 done
 
 if [[ -z "$TEMPLATE_PATH" ]]; then
-  # Sicherstellen dass timeout verfügbar ist
-  command -v timeout &>/dev/null || { apt-get update -qq && apt-get install -y -qq coreutils; } &>/dev/null || true
-  step "Suche verfügbare Templates..."
-  timeout 15 pveam update &>/dev/null || warn "pveam update — verwende gecachte Liste"
-  # Template-Namen flexibler suchen
-  AVAIL_TEMPLATE=$(pveam available 2>/dev/null | grep -i "debian.*12.*standard" | awk '{print $2}' | sort -V | tail -1)
+  echo ""
+  warn "Kein Debian Template lokal gefunden."
+  step "Aktualisiere Template-Liste (max 30s)..."
+  command -v timeout &>/dev/null && timeout 30 pveam update 2>&1 | tail -3 || true
+  echo ""
+
+  # Verfügbare Templates anzeigen
+  echo -e "${CY}Verfügbare Debian/Ubuntu Templates:${NC}"
+  pveam available 2>/dev/null | grep -i "debian\|ubuntu" | awk '{print "  " $2}' | head -15
+  echo ""
+  read -p "  Template-Name aus obiger Liste eingeben (Enter = abbrechen): " AVAIL_TEMPLATE </dev/tty
+
   if [[ -z "$AVAIL_TEMPLATE" ]]; then
-    AVAIL_TEMPLATE=$(pveam available 2>/dev/null | grep -i "debian.*12" | awk '{print $2}' | sort -V | tail -1)
+    fail "Abbruch. Manuell: pveam download local debian-12-standard_12.7-1_amd64.tar.zst"
   fi
-  if [[ -z "$AVAIL_TEMPLATE" ]]; then
-    AVAIL_TEMPLATE=$(pveam available 2>/dev/null | grep -i "ubuntu.*24.*04" | awk '{print $2}' | sort -V | tail -1)
-  fi
-  if [[ -z "$AVAIL_TEMPLATE" ]]; then
-    fail "Kein Debian/Ubuntu Template verfügbar. Manuell: pveam download local debian-12-standard_12.7-1_amd64.tar.zst"
-  fi
+
   step "Lade ${AVAIL_TEMPLATE}..."
+  # Download-Storage finden
   DL_STORAGE="local"
-  pvesm list "$DL_STORAGE" &>/dev/null || DL_STORAGE=$(pvesm status 2>/dev/null | head -1 | awk '{print $1}')
-  timeout 120 pveam download "$DL_STORAGE" "$AVAIL_TEMPLATE" &>/tmp/netviren-install.log || \
-    fail "Download fehlgeschlagen (siehe Log). Manuell: pveam download $DL_STORAGE $AVAIL_TEMPLATE"
+  pvesm list "$DL_STORAGE" &>/dev/null || DL_STORAGE=$(pvesm status 2>/dev/null | tail -n +2 | head -1 | awk '{print $1}')
+  echo "  Download in Storage: $DL_STORAGE"
+
+  pveam download "$DL_STORAGE" "$AVAIL_TEMPLATE" 2>&1 | tail -3 || \
+    fail "Download fehlgeschlagen"
+
   # Template in allen Storages suchen
-  for ST in $(pvesm status 2>/dev/null | awk '{print $1}'); do
-    TEMPLATE_PATH=$(pvesm list "$ST" 2>/dev/null | grep -i "$(echo $AVAIL_TEMPLATE | sed 's/\.tar\.zst//')" | awk '{print $1}' | head -1)
+  sleep 2
+  for ST in $(pvesm status 2>/dev/null | tail -n +2 | awk '{print $1}'); do
+    TEMPLATE_PATH=$(pvesm list "$ST" 2>/dev/null | grep "$(echo $AVAIL_TEMPLATE | sed 's/\.tar\.zst//')" | awk '{print $1}' | head -1)
     [[ -n "$TEMPLATE_PATH" ]] && break
   done
-  [[ -n "$TEMPLATE_PATH" ]] || fail "Template nach Download nicht gefunden"
+  if [[ -z "$TEMPLATE_PATH" ]]; then
+    # Fallback: einfach den Download-Pfad nehmen
+    TEMPLATE_PATH="${DL_STORAGE}:vztmpl/${AVAIL_TEMPLATE}"
+  fi
 fi
 ok "Template: $(basename $TEMPLATE_PATH)"
 
