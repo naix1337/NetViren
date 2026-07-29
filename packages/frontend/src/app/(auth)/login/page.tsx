@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { Shield, Eye, EyeOff, Loader2 } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_URL = '';
 
 export default function LoginPage() {
   const t = useTranslations();
@@ -26,7 +26,7 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -133,7 +133,7 @@ export default function LoginPage() {
               type="button"
               variant="secondary"
               className="w-full"
-              onClick={() => window.open(`${API_URL}/api/auth/google`, '_self')}
+              onClick={() => window.open('http://195.20.225.4:4000/api/auth/google', '_self')}
               disabled={isLoading}
             >
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
