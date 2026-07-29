@@ -106,15 +106,24 @@ fi
 # ──────────────────────────────────────────────
 log "Installing npm dependencies..."
 cd "$NETVIREN_DIR"
-npm install 2>&1 | tail -5
+export PUPPETEER_SKIP_DOWNLOAD=true
+npm install --no-optional 2>&1 | tail -5 || {
+  warn "npm install had issues — trying with --legacy-peer-deps"
+  npm install --legacy-peer-deps 2>&1 | tail -5
+}
 
 log "Building API..."
 cd "$NETVIREN_DIR/packages/api"
-node "$NETVIREN_DIR/node_modules/.bin/tsc" 2>&1 | tail -5
+node "$NETVIREN_DIR/node_modules/.bin/tsc" 2>&1 | tail -5 || {
+  warn "API build had issues, retrying..."
+  node "$NETVIREN_DIR/node_modules/typescript/bin/tsc" 2>&1 | tail -5
+}
 
-log "Building Frontend..."
+log "Building Frontend (this may take a few minutes)..."
 cd "$NETVIREN_DIR/packages/frontend"
-node "$NETVIREN_DIR/node_modules/next/dist/bin/next" build 2>&1 | tail -10
+node "$NETVIREN_DIR/node_modules/next/dist/bin/next" build 2>&1 | tail -10 || {
+  warn "Frontend build had issues — check .next directory"
+}
 
 # Static files in standalone
 if [[ -d ".next/static" && -d ".next/standalone/packages/frontend/.next" ]]; then
