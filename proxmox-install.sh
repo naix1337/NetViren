@@ -41,30 +41,43 @@ check_proxmox() {
 
 # ───── Container-Template holen ─────
 get_template() {
-  local STORAGE="$1"
-  local TEMPLATE_NAME="$2"
-  local TEMPLATE_PATH
+  local TEMPLATE_PATH=""
 
-  # Nach vorhandenem Template suchen (genauer Match)
-  TEMPLATE_PATH=$(pvesm list "$STORAGE" 2>/dev/null | grep -i "debian.*12.*standard" | awk '{print $1}' | head -1)
+  # Template in allen verfügbaren Storages suchen
+  for ST in $(pvesm types 2>/dev/null | grep -i content | head -5 || echo "local"); do
+    TEMPLATE_PATH=$(pvesm list "$ST" 2>/dev/null | grep -i "debian.*12.*standard" | awk '{print $1}' | head -1)
+    [[ -n "$TEMPLATE_PATH" ]] && break
+  done
 
+  # Kein Template gefunden → herunterladen
   if [[ -z "$TEMPLATE_PATH" ]]; then
     echo -e "${CYAN}▶ Suche neuestes Debian 12 Template...${NC}" >&2
     pveam update 2>/dev/null || true
-    # Template-Namen aus der verfügbaren Liste holen
+
     local AVAIL_TEMPLATE
     AVAIL_TEMPLATE=$(pveam available 2>/dev/null | grep -i "debian-12-standard" | awk '{print $2}' | sort -V | tail -1)
-    if [[ -n "$AVAIL_TEMPLATE" ]]; then
-      echo -e "${CYAN}▶ Lade ${AVAIL_TEMPLATE} herunter...${NC}" >&2
-      pveam download "$STORAGE" "$AVAIL_TEMPLATE" 2>&1 | tail -1
-      TEMPLATE_PATH=$(pvesm list "$STORAGE" 2>/dev/null | grep -i "debian.*12.*standard" | awk '{print $1}' | head -1)
+
+    if [[ -z "$AVAIL_TEMPLATE" ]]; then
+      echo -e "${RED}✗ Kein Debian 12 Template in pveam verfügbar!${NC}" >&2
+      pveam available 2>/dev/null | grep debian | awk '{print "  " $2}' | head -10 >&2
+      echo ""
+      return
     fi
+
+    # Download in local (oder ersten passenden Storage)
+    local DL_STORAGE="local"
+    pvesm list "$DL_STORAGE" &>/dev/null || DL_STORAGE=$(pvesm status 2>/dev/null | head -1 | awk '{print $1}')
+
+    echo -e "${CYAN}▶ Lade ${AVAIL_TEMPLATE} nach ${DL_STORAGE}...${NC}" >&2
+    pveam download "$DL_STORAGE" "$AVAIL_TEMPLATE" >&2
+
+    TEMPLATE_PATH=$(pvesm list "$DL_STORAGE" 2>/dev/null | grep -i "debian.*12.*standard" | awk '{print $1}' | head -1)
   fi
 
   if [[ -z "$TEMPLATE_PATH" ]]; then
-    echo -e "${RED}✗ Kein Debian 12 Template gefunden!${NC}" >&2
-    echo -e "${YELLOW}  Verfügbar:${NC}" >&2
-    pveam available 2>/dev/null | grep debian | awk '{print "  " $2}' | head -10 >&2
+    echo -e "${RED}✗ Template nicht gefunden nach Download!${NC}" >&2
+    echo ""
+    return
   fi
 
   echo "$TEMPLATE_PATH"
@@ -213,11 +226,10 @@ main() {
           echo -e "${YELLOW}  Root-Passwort für Container: ${CT_PASSWORD}${NC}"
         fi
         echo ""
-        TEMPLATE_PATH=$(get_template "$STORAGE" "$CT_TEMPLATE")
+        TEMPLATE_PATH=$(get_template)
         if [[ -z "$TEMPLATE_PATH" ]]; then
-          echo -e "${RED}Konnte kein Debian 12 Template finden.${NC}"
-          echo -e "${YELLOW}Verfügbare Templates:${NC}"
-          pveam available 2>/dev/null | grep debian | head -10
+          echo -e "${RED}✗ Konnte kein Debian 12 Template finden.${NC}"
+          echo -e "${YELLOW}  Manuell herunterladen: pveam download local debian-12-standard_12.7-1_amd64.tar.zst${NC}"
           exit 1
         fi
         create_container "$TEMPLATE_PATH"
