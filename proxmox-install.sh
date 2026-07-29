@@ -4,7 +4,7 @@
 # https://github.com/naix1337/networkvirusscanner
 # ═══════════════════════════════════════════════════════════
 
-set -euo pipefail
+set -eo pipefail
 
 # ───── Farben ─────
 RD="\033[01;31m"; GR="\033[01;32m"; YW="\033[01;33m"; BL="\033[01;34m"; CY="\033[01;36m"; NC="\033[0m"
@@ -31,11 +31,12 @@ ask() {
 
 # ───── Auswahl ─────
 choose() {
-  read -p "  Auswahl (1/2): " choice
+  local choice
+  read -p "  Auswahl (1/2): " choice </dev/tty
   case "$choice" in
     1) return 0 ;;
     2) return 1 ;;
-    *) echo -e "${RD}  Ungültig${NC}"; choose "$@"
+    *) echo -e "${RD}  Ungültig${NC}"; choose
   esac
 }
 
@@ -74,18 +75,19 @@ echo ""
 echo -e "  ${GR}1)${NC} Standard  — 8GB Disk, 2 Cores, 2GB RAM, DHCP"
 echo -e "  ${GR}2)${NC} Advanced  — Eigene Einstellungen"
 echo ""
-if choose; then
+if choose 2>/dev/null; then
   CT_DISK="8"; CT_CORES="2"; CT_RAM="2048"; CT_IP="dhcp"
 else
   ask "Container-Konfiguration"
-  read -p "  Container-ID (Enter = automatisch): " CT_ID
+  CT_ID=""; CT_HOSTNAME="netviren"; CT_RAM="2048"; CT_CORES="2"; CT_DISK="8"; CT_IP="dhcp"; CT_PASSWORD=""
+  read -p "  Container-ID (Enter = automatisch): " CT_ID </dev/tty
   [[ -z "$CT_ID" ]] && CT_ID=$(pvesh get /cluster/nextid 2>/dev/null || echo "100")
-  read -p "  Hostname [netviren]: " CT_HOSTNAME; CT_HOSTNAME=${CT_HOSTNAME:-netviren}
-  read -p "  RAM in MB [2048]: " CT_RAM; CT_RAM=${CT_RAM:-2048}
-  read -p "  CPU Cores [2]: " CT_CORES; CT_CORES=${CT_CORES:-2}
-  read -p "  Disk in GB [8]: " CT_DISK; CT_DISK=${CT_DISK:-8}
-  read -p "  IP (dhcp oder 192.168.1.100/24) [dhcp]: " CT_IP; CT_IP=${CT_IP:-dhcp}
-  read -s -p "  Root-Passwort (Enter = generieren): " CT_PASSWORD; echo ""
+  read -p "  Hostname [${CT_HOSTNAME}]: " input </dev/tty; CT_HOSTNAME=${input:-$CT_HOSTNAME}
+  read -p "  RAM in MB [${CT_RAM}]: " input </dev/tty; CT_RAM=${input:-$CT_RAM}
+  read -p "  CPU Cores [${CT_CORES}]: " input </dev/tty; CT_CORES=${input:-$CT_CORES}
+  read -p "  Disk in GB [${CT_DISK}]: " input </dev/tty; CT_DISK=${input:-$CT_DISK}
+  read -p "  IP (dhcp oder 192.168.1.100/24) [${CT_IP}]: " input </dev/tty; CT_IP=${input:-$CT_IP}
+  read -s -p "  Root-Passwort (Enter = generieren): " CT_PASSWORD </dev/tty; echo ""
 fi
 
 # Zusammenfassung
