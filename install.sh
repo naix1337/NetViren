@@ -140,35 +140,10 @@ timeout 5 node dist/index.js 2>/dev/null || true
 ok "Database initialized"
 
 echo ""
-if [[ -t 0 ]]; then
-  # Interaktiv: Passwort vom Benutzer
-  echo -e "${YELLOW}────────── Create Admin User ──────────${NC}"
-  read -p "  Username [admin]: " ADMIN_USER
-  ADMIN_USER=${ADMIN_USER:-admin}
-  while true; do
-    read -s -p "  Password: " ADMIN_PASS
-    echo ""
-    if [[ ${#ADMIN_PASS} -lt 8 ]]; then
-      echo -e "${RED}  Password must be at least 8 characters${NC}"
-      continue
-    fi
-    read -s -p "  Confirm: " ADMIN_PASS2
-    echo ""
-    if [[ "$ADMIN_PASS" != "$ADMIN_PASS2" ]]; then
-      echo -e "${RED}  Passwords do not match${NC}"
-      continue
-    fi
-    break
-  done
-else
-  # Automatisch: Zufallspasswort generieren + in Datei speichern
-  ADMIN_USER="admin"
-  ADMIN_PASS=$(tr -dc 'A-Za-z0-9' </dev/urandom 2>/dev/null | head -c 12 || echo "netviren$(date +%s)")
-  mkdir -p /etc/netviren 2>/dev/null || true
-  echo "$ADMIN_PASS" > /etc/netviren/admin-password 2>/dev/null || true
-  chmod 600 /etc/netviren/admin-password 2>/dev/null || true
-  echo -e "${CYAN}  Admin-Passwort in /etc/netviren/admin-password${NC}"
-fi
+echo -e "${YELLOW}────────── Create Admin User ──────────${NC}"
+ADMIN_USER="admin"
+ADMIN_PASS=$(tr -dc 'A-Za-z0-9' </dev/urandom 2>/dev/null | head -c 12 || echo "netviren$(date +%s)")
+echo -e "${CYAN}  Admin: ${ADMIN_USER}${NC}"
 
 export ADMIN_PASS ADMIN_USER ADMIN_DB_DIR="${DB_DIR}"
 
@@ -354,11 +329,8 @@ echo -e "${GREEN}  NetViren installation complete!${NC}"
 echo -e "${GREEN}══════════════════════════════════════════════${NC}"
 echo ""
 echo -e "  ${CYAN}Dashboard:${NC}  http://${PUBLIC_IP}:3001"
-if [[ -t 0 ]]; then
-  echo -e "  ${CYAN}Login:${NC}      ${ADMIN_USER} / ${ADMIN_PASS}"
-else
-  echo -e "  ${CYAN}Login:${NC}      ${ADMIN_USER} / siehe cat /etc/netviren/admin-password"
-fi
+echo -e "  ${CYAN}Login:${NC}      ${ADMIN_USER} / ${ADMIN_PASS}"
+echo -e "  ${CYAN}Datei:${NC}      cat /etc/netviren/login.txt"
 echo ""
 echo -e "  ${CYAN}Services:${NC}"
 echo "    netviren-api              (Fastify API)"
