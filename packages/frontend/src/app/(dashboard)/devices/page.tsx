@@ -51,9 +51,9 @@ export default function DevicesPage() {
 
   const filtered = data.filter(
     (d) =>
-      d.ip.includes(search) ||
-      d.hostname?.toLowerCase().includes(search.toLowerCase()) ||
-      d.mac.includes(search)
+      (d.ip_address || d.ip || '').includes(search) ||
+      (d.hostname || '').toLowerCase().includes(search.toLowerCase()) ||
+      (d.mac_address || d.mac || '').includes(search)
   );
 
   if (loading) {
