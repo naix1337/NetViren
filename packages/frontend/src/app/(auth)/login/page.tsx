@@ -38,6 +38,7 @@ export default function LoginPage() {
       const data = await res.json();
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
+      document.cookie = 'netviren_session=true; path=/; max-age=86400';
       router.push('/');
     } catch {
       setError(t('auth.error_invalid'));

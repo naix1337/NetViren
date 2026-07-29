@@ -1,18 +1,22 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/_next', '/api', '/favicon.ico'];
+const PUBLIC_PATHS = ['/login', '/_next', '/api/auth/login', '/favicon.ico'];
 
 export default function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Allow public paths (API routes, login page, static assets)
+  // Allow public paths
   if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
     return addSecurityHeaders(NextResponse.next());
   }
 
-  // For dashboard pages, let the request through and let the frontend
-  // redirect to login if API calls return 401
+  // Check session cookie (set after successful login)
+  const hasSession = req.cookies.has('netviren_session');
+  if (!hasSession && pathname.startsWith('/')) {
+    return addSecurityHeaders(NextResponse.redirect(new URL('/login', req.url)));
+  }
+
   return addSecurityHeaders(NextResponse.next());
 }
 
