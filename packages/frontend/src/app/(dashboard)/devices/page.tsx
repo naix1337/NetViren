@@ -138,15 +138,15 @@ export default function DevicesPage() {
                 filtered.map((device) => (
                   <TableRow key={device.id} className="cursor-pointer">
                     <TableCell>
-                      <StatusPulse status={device.is_active ? 'online' : 'offline'} size="sm" />
+                      <StatusPulse status={device.is_online ? 'online' : 'offline'} size="sm" />
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-text-primary">{device.ip}</TableCell>
-                    <TableCell className="font-mono text-xs text-text-secondary">{device.mac}</TableCell>
+                    <TableCell className="font-mono text-xs text-text-primary">{device.ip_address}</TableCell>
+                    <TableCell className="font-mono text-xs text-text-secondary">{device.mac_address}</TableCell>
                     <TableCell className="text-text-primary">{device.hostname}</TableCell>
-                    <TableCell className="text-text-secondary text-xs">{device.os}</TableCell>
+                    <TableCell className="text-text-secondary text-xs">{device.os_detected}</TableCell>
                     <TableCell className="text-text-secondary">{device.vendor}</TableCell>
                     <TableCell>
-                      <Badge variant="default">{device.ports}</Badge>
+                      <Badge variant="default">{device.ports || device.port_count || 0}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={threatColor(device.threat_score)}>{device.threat_score}</Badge>
