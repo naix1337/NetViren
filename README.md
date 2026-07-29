@@ -9,29 +9,36 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue)
 
 > **Eine professionelle, selbstgehostete Network Security Platform für Netzwerküberwachung, Bedrohungserkennung, Paketanalyse und Sicherheits-Monitoring.**  
-> Entwickelt für den Betrieb in Proxmox LXC Containern (Debian/Ubuntu) — nativ, ohne Docker.
+> Entwickelt für den Betrieb auf Debian/Ubuntu Servern — nativ, ohne Docker.
 
 ---
 
-## ✨ Features
+## 🚀 Quick Start
 
-| Feature | Beschreibung |
-|---------|-------------|
-| **🔍 Netzwerk-Discovery** | Automatische Geräteerkennung via ARP, ICMP und Nmap |
-| **🔌 Port-Scanning** | TCP + UDP Port-Scans mit konfigurierbaren Ranges |
-| **💻 OS-Erkennung** | Betriebssystem-Fingerprinting und Service-Detection |
-| **🤖 Agent-System** | Native Agents für Windows & Linux (SHA256-Scans, Packet Captures) |
-| **📦 Paketanalyse** | Deep Packet Inspection, DNS-Analyse, Beaconing-Erkennung |
-| **🦠 VirusTotal** | Automatischer Hash/URL/Domain/IP-Abgleich |
-| **📊 PDF-Reports** | Tägliche automatische + manuelle Berichte |
-| **🔔 Discord-Alerts** | Echtzeit-Benachrichtigungen mit schönen Embeds |
-| **👥 Multi-User** | Rollenbasiert (Admin, Analyst, Viewer) mit OAuth (Google, GitHub) |
-| **🌐 i18n** | Deutsch & Englisch (vollständig übersetzt) |
-| **🎨 Dark Cyber Design** | Hochwertiges, professionelles Dark-UI mit Neon-Akzenten |
+### One-Liner Installation (frische Server)
 
----
+```bash
+bash <(curl -sSL https://github.com/naix1337/network-analyser/raw/master/install.sh)
+```
 
-## 🏗️ Architektur
+Das Script installiert automatisch:
+- Node.js 22, Python 3, Nmap, Scapy
+- Baut API + Frontend aus dem Repository
+- Erstellt Admin-User (Passwort wird abgefragt)
+- Richtet 4 systemd-Services ein
+- Konfiguriert optional Caddy als Reverse Proxy
+
+### Oder manuell
+
+```bash
+# Repository klonen
+git clone https://github.com/naix1337/network-analyser.git /opt/netviren
+cd /opt/netviren
+
+# Installationsscript ausführen
+chmod +x install.sh
+./install.sh
+```
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -74,55 +81,9 @@
 ## 🚀 Quick Start
 
 ### Voraussetzungen
-- **Server:** Proxmox LXC (Debian 12 oder Ubuntu 24.04+)
-- **Rechte:** `root`-Zugriff für Installation
+- **Server:** Debian 12 oder Ubuntu 24.04+
+- **Rechte:** `root`-Zugriff (via sudo)
 - **Netzwerk:** Zugriff auf das zu überwachende lokale Netzwerk
-
-### Installation
-
-```bash
-# 1. Projekt auf den Server kopieren
-scp -r netzwerk-viren-scanner root@dein-server:/opt/netviren
-
-# 2. Installationsskript ausführen
-cd /opt/netviren
-chmod +x install.sh
-./install.sh
-
-# 3. Nach der Installation:
-# API:      http://dein-server:4000
-# Frontend: http://dein-server:3001
-# Login:    admin / (vom Script vergebenes Passwort)
-```
-
-### Alternative: Manuelle Installation
-
-```bash
-# System-Dependencies
-apt-get update
-apt-get install -y build-essential libpcap-dev nmap arp-scan python3 python3-pip nginx curl
-
-# Node.js 22
-curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-apt-get install -y nodejs
-
-# Projekt setup
-cd /opt/netviren
-npm install
-npm run build
-
-# Python-Dependencies
-pip3 install scapy python-nmap
-
-# API starten
-cd packages/api && node dist/index.js &
-
-# Frontend starten
-cd packages/frontend && PORT=3001 node .next/standalone/packages/frontend/server.js &
-
-# Scanner starten
-cd workers/scanner && python3 main.py &
-```
 
 ---
 
@@ -132,7 +93,6 @@ cd workers/scanner && python3 main.py &
 |----------|-------------|
 | [Benutzerhandbuch](docs/user-guide.md) | Vollständige Anleitung mit allen Features |
 | [Installation](docs/installation.md) | Detaillierte Installationsanleitung |
-| [Architektur](docs/architecture.md) | Systemarchitektur und Datenflüsse |
 | [API-Referenz](docs/api.md) | Vollständige REST API Dokumentation |
 | [Agent-Deployment](docs/agent-deployment.md) | Agents auf Windows/Linux installieren |
 
@@ -176,7 +136,7 @@ cd workers/scanner && python3 main.py &
 
 ```bash
 # Repository klonen
-git clone https://github.com/dein-user/netviren.git
+git clone https://github.com/naix1337/network-analyser.git
 cd netviren
 
 # Dependencies installieren
