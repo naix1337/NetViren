@@ -6,7 +6,7 @@ set -euo pipefail
 # Install Script
 # ═══════════════════════════════════════════════
 # One-liner:
-#   bash <(curl -sSL https://github.com/naix1337/network-analyser/raw/master/install.sh)
+#   bash <(curl -sSL https://github.com/naix1337/networkvirusscanner/raw/master/install.sh)
 # ═══════════════════════════════════════════════
 
 REPO="https://github.com/naix1337/networkvirusscanner.git"

@@ -15,30 +15,16 @@
 
 ## 🚀 Quick Start
 
-### One-Liner Installation (frische Server)
-
+### Auf einem Server (Debian/Ubuntu)
 ```bash
 bash <(curl -sSL https://github.com/naix1337/networkvirusscanner/raw/master/install.sh)
 ```
 
-Das Script installiert automatisch:
-- Node.js 22, Python 3, Nmap, Scapy
-- Baut API + Frontend aus dem Repository
-- Erstellt Admin-User (Passwort wird abgefragt)
-- Richtet 4 systemd-Services ein
-- Konfiguriert optional Caddy als Reverse Proxy
-
-### Oder manuell
-
+### Auf Proxmox VE (LXC Container)
 ```bash
-# Repository klonen
-git clone https://github.com/naix1337/networkvirusscanner.git /opt/netviren
-cd /opt/netviren
-
-# Installationsscript ausführen
-chmod +x install.sh
-./install.sh
+bash <(curl -sSL https://github.com/naix1337/networkvirusscanner/raw/master/proxmox-install.sh)
 ```
+Dann im Menü: Einstellungen anpassen → `I` drücken → fertig.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
