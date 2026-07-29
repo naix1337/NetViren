@@ -68,10 +68,24 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     if (report.status !== 'completed') {
       return reply.status(400).send({ error: 'Bad Request', message: 'Report not yet completed' });
     }
-    if (!report.file_path || !fs.existsSync(report.file_path)) {
-      return reply.status(404).send({ error: 'File not found', message: 'Report file is not available on disk' });
+    const filePath = report.file_path;
+    if (!filePath) return reply.status(404).send({ error: 'File not found' });
+    // Validate path to prevent path traversal
+    const REPORT_DIR = process.env.PACKET_DIR || '/var/lib/netviren';
+    let safePath: string;
+    try {
+      safePath = fs.realpathSync(path.resolve(filePath));
+      const reportDir = fs.realpathSync(path.resolve(REPORT_DIR)) + path.sep;
+      if (!safePath.startsWith(reportDir)) {
+        throw new Error('Access denied');
+      }
+    } catch {
+      return reply.status(403).send({ error: 'Access denied' });
     }
-    const stream = fs.createReadStream(report.file_path);
+    if (!fs.existsSync(safePath)) {
+      return reply.status(404).send({ error: 'File not found' });
+    }
+    const stream = fs.createReadStream(safePath);
     reply.header('Content-Type', 'application/pdf');
     reply.header('Content-Disposition', `attachment; filename="report-${id}.pdf"`);
     return reply.send(stream);
