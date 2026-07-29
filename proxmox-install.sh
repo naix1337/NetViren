@@ -45,27 +45,40 @@ CT_STORAGE=""
 TEMPLATE_PATH=""
 LOG="/tmp/netviren-installer.log"
 
-# ───── Terminal Zugriff ─────
-# Bei bash <(curl ...) ist stdin die Pipe.
-# read muss von /dev/tty lesen.
+# ───── Terminal ─────
 if [[ -t 0 ]]; then
   READ_CMD="read"
 else
   READ_CMD="read </dev/tty"
 fi
 
-# ───── Hilfsfunktionen ─────
-msgbox()  { whiptail --title " NetViren Installer " --msgbox "$1" 12 65 2>&1; }
-yesno()   { whiptail --title " NetViren Installer " --yesno "$1" 12 65 2>&1; }
-input()   { whiptail --title " NetViren Installer " --inputbox "$1" 10 65 "$2" 2>&1; }
+# ───── UI ─────
+msgbox()   { whiptail --title " NetViren Installer " --msgbox "$1" 12 65 2>&1; }
+input()    { whiptail --title " NetViren Installer " --inputbox "$1" 10 65 "$2" 2>&1; }
 password() { whiptail --title " NetViren Installer " --passwordbox "$1" 10 65 2>&1; }
 
-log() { echo "[$(date +%H:%M:%S)] $*" >>"$LOG"; }
 step() { echo "  ▪ $1"; }
 ok()   { echo "  ✓ $1"; }
 warn() { echo "  ⚠ $1"; }
 
-# ───── 1. HEADER ─────
+# ───── Spinner ─────
+spinner() {
+  local pid=$1
+  local delay=0.15
+  local spinstr='|/-\'
+  local msg="${2:-Bitte warten...}"
+  tput civis 2>/dev/null || true
+  while kill -0 "$pid" 2>/dev/null; do
+    for ((i=0; i<${#spinstr}; i++)); do
+      printf "\r  [%c] %s" "${spinstr:$i:1}" "$msg"
+      sleep $delay
+    done
+  done
+  printf "\r  [✓] %-40s\n" "$msg"
+  tput cnorm 2>/dev/null || true
+}
+
+# ───── HEADER ─────
 clear
 echo ""
 echo " ╔═══════════════════════════════════════════════╗"
@@ -74,28 +87,38 @@ echo " ║        Network Security Platform              ║"
 echo " ╚═══════════════════════════════════════════════╝"
 echo ""
 
-# ───── 2. MODUS ─────
-if whiptail --title " NetViren Installer " --yesno "Standard Modus — 8GB, 2 Cores, 2GB RAM, DHCP\n\nAbbruch mit ESC" 10 65 2>&1; then
-  # Standard Mode - defaults already set
-  :
-else
-  # Advanced Mode
-  CT_ID=$(input "Container-ID (leer = automatisch)" "")
-  CT_ID=${CT_ID:-$(pvesh get /cluster/nextid 2>/dev/null || echo "100")}
+# ───── MENU ─────
+CHOICE=$(whiptail --title " NetViren Installer " --menu "Wähle den Installationsmodus:" 14 50 3 \
+  "1" "Standard  — 8GB, 2 Cores, 2GB, DHCP" \
+  "2" "Advanced  — Eigene Konfiguration" \
+  "3" "Exit" 2>&1)
 
-  CT_HOSTNAME=$(input "Hostname" "$CT_HOSTNAME")
-  CT_RAM=$(input "RAM in MB" "$CT_RAM")
-  CT_CORES=$(input "CPU Cores" "$CT_CORES")
-  CT_DISK=$(input "Disk in GB" "$CT_DISK")
-  CT_IP=$(input "IP (z.B. 192.168.1.100/24 oder dhcp)" "$CT_IP")
-  CT_PASSWORD=$(password "Root-Passwort (leer = generieren)")
-fi
+case "$CHOICE" in
+  "1")
+    # Standard - defaults sind gesetzt
+    ;;
+  "2")
+    CT_ID=$(input "Container-ID (leer = automatisch)" "")
+    CT_ID=${CT_ID:-$(pvesh get /cluster/nextid 2>/dev/null || echo "100")}
+    CT_HOSTNAME=$(input "Hostname" "$CT_HOSTNAME")
+    CT_RAM=$(input "RAM in MB" "$CT_RAM")
+    CT_CORES=$(input "CPU Cores" "$CT_CORES")
+    CT_DISK=$(input "Disk in GB" "$CT_DISK")
+    CT_IP=$(input "IP (z.B. 192.168.1.100/24 oder dhcp)" "$CT_IP")
+    CT_PASSWORD=$(password "Root-Passwort (leer = generieren)")
+    ;;
+  *)
+    echo ""
+    echo "  Abbruch."
+    exit 0
+    ;;
+esac
 
-# Defaults setzen
+# Defaults
 [[ -z "$CT_ID" ]] && CT_ID=$(pvesh get /cluster/nextid 2>/dev/null || echo "100")
 [[ -z "$CT_PASSWORD" ]] && CT_PASSWORD=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16 2>/dev/null || echo "netviren$(date +%s)")
 
-# ───── 3. TEMPLATE ─────
+# ───── TEMPLATE ─────
 clear
 echo ""
 echo " ╔═══════════════════════════════════════════════╗"
@@ -105,60 +128,40 @@ echo ""
 
 step "Suche Debian 12 Template..."
 
-# In allen Storages suchen
 while read -r ST; do
   [[ -z "$ST" ]] && continue
   TEMPLATE_PATH=$(pvesm list "$ST" 2>/dev/null | grep -i "debian" | awk '{print $1}' | head -1)
   [[ -n "$TEMPLATE_PATH" ]] && break
 done < <(pvesm status 2>/dev/null | awk 'NR>1{print $1}')
 
-# Kein Template gefunden → runterladen
 if [[ -z "$TEMPLATE_PATH" ]]; then
   if command -v timeout &>/dev/null; then
     step "Aktualisiere Template-Liste..."
     timeout 20 pveam update &>/dev/null || true
   fi
 
-  # Verfügbare Templates
   TEMPLATE_LIST=$(pveam available 2>/dev/null | grep -iE "debian|ubuntu" | awk '{print $2}' | head -20)
   if [[ -z "$TEMPLATE_LIST" ]]; then
     echo ""
-    echo "  ⚠  Keine Templates in pveam verfügbar."
-    echo "  Bitte lade manuell ein Template herunter:"
-    echo "  pveam download local debian-12-standard_12.7-1_amd64.tar.zst"
-    echo "  Dann: pvesm list local | grep debian"
+    echo "  ⚠  Keine Templates verfügbar."
+    echo "  Manuell: pveam download local debian-12-standard_12.7-1_amd64.tar.zst"
     echo ""
-    eval "$READ_CMD -p '  Enter drücken nach manuellem Download... '"
+    eval "$READ_CMD -p '  Enter drücken... '"
     exit 1
   fi
 
-  # Template-Auswahl via whiptail
   RADIOLIST=()
   while IFS= read -r tmpl; do
     [[ -z "$tmpl" ]] && continue
     RADIOLIST+=("$tmpl" "$tmpl" "OFF")
   done <<< "$TEMPLATE_LIST"
 
-  if [[ ${#RADIOLIST[@]} -eq 0 ]]; then
-    echo "  ✗ Keine Templates verfügbar."
-    exit 1
-  fi
-
   SELECTED=$(whiptail --title " Template Auswahl " --radiolist "Wähle ein Template:" 20 70 10 "${RADIOLIST[@]}" 2>&1)
-  if [[ -z "$SELECTED" ]]; then
-    echo "  ✗ Abgebrochen."
-    exit 1
-  fi
+  [[ -z "$SELECTED" ]] && { echo "  ✗ Abgebrochen."; exit 1; }
 
   step "Lade ${SELECTED}..."
-  pveam download "local" "$SELECTED" 2>&1 | while IFS= read -r line; do
-    echo "     $line"
-  done
-
-  if [[ $? -ne 0 ]]; then
-    echo "  ✗ Download fehlgeschlagen."
-    exit 1
-  fi
+  pveam download "local" "$SELECTED" 2>&1 | while IFS= read -r line; do echo "     $line"; done
+  [[ ${PIPESTATUS[0]} -ne 0 ]] && { echo "  ✗ Download fehlgeschlagen."; exit 1; }
 
   sleep 2
   while read -r ST; do
@@ -171,14 +174,12 @@ fi
 
 ok "Template gefunden"
 
-# ───── 4. STORAGE ─────
+# ───── STORAGE ─────
 CT_STORAGE=$(pvesm status 2>/dev/null | grep -i "active" | awk '{print $1}' | head -1)
 [[ -z "$CT_STORAGE" ]] && CT_STORAGE="local"
 
-# ───── 5. CONTAINER ─────
+# ───── CONTAINER ─────
 step "Erstelle Container $CT_ID..."
-
-PASSWORD_ESC=$(echo "$CT_PASSWORD" | sed 's/"/\\"/g')
 
 pct create "$CT_ID" "$TEMPLATE_PATH" \
   --hostname "$CT_HOSTNAME" \
@@ -190,11 +191,9 @@ pct create "$CT_ID" "$TEMPLATE_PATH" \
   --unprivileged 1 \
   --features nesting=1 \
   --password "$CT_PASSWORD" \
-  --start 1 2>&1 | while IFS= read -r line; do
-    echo "     $line"
-  done
+  --start 1 2>&1 | while IFS= read -r line; do echo "     $line"; done
 
-if [[ $? -ne 0 ]]; then
+if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
   echo "  ✗ Container-Erstellung fehlgeschlagen."
   exit 1
 fi
@@ -202,23 +201,30 @@ ok "Container $CT_ID erstellt"
 
 sleep 3
 
-# ───── 6. NETVIREN ─────
+# ───── NETVIREN INSTALL (mit Spinner) ─────
 echo ""
-step "Installiere NetViren im Container..."
-step "Das kann 5-15 Minuten dauern — bitte warten..."
 
+# Start installation in background, show spinner
 pct exec "$CT_ID" -- bash -c "
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq >/dev/null 2>&1
   apt-get install -y -qq curl git openssl locales >/dev/null 2>&1 || true
-  bash <(curl -sSL https://github.com/naix1337/networkvirusscanner/raw/master/install.sh)
-" 2>&1 | while IFS= read -r line; do
-  echo "     $line"
-done
+  bash <(curl -sSL https://github.com/naix1337/networkvirusscanner/raw/master/install.sh) </dev/null
+" >/tmp/netviren-install.log 2>&1 &
+INSTALL_PID=$!
 
+spinner "$INSTALL_PID" "Installiere NetViren im Container..."
+
+wait "$INSTALL_PID" 2>/dev/null
+if [[ $? -eq 0 ]]; then
+  ok "NetViren installiert"
+else
+  warn "Installation hatte Warnungen — tail -20 /tmp/netviren-install.log"
+fi
+
+# ───── INFO ─────
 CT_IP_ADDR=$(pct exec "$CT_ID" -- hostname -I 2>/dev/null | awk '{print $1}')
 
-# ───── 7. FERTIG ─────
 echo ""
 echo " ╔═══════════════════════════════════════════════╗"
 echo " ║     ✅  NetViren installiert!                 ║"
