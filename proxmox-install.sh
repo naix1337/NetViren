@@ -27,7 +27,7 @@ CT_DISK="8"
 CT_CORES="2"
 CT_RAM="2048"
 CT_IP="dhcp"
-CT_TEMPLATE="debian-12-standard"
+CT_TEMPLATE="debian-12"
 CT_PASSWORD=""
 
 # ───── Prüfung: Läuft das auf einem Proxmox Host? ─────
@@ -42,17 +42,31 @@ check_proxmox() {
 # ───── Container-Template holen ─────
 get_template() {
   local STORAGE="$1"
-  local TEMPLATE="$2"
-  local TEMPLATE_PATH=$(pvesm list "$STORAGE" 2>/dev/null | grep "$TEMPLATE" | awk '{print $1}' | head -1)
+  local TEMPLATE_NAME="$2"
+  local TEMPLATE_PATH
+
+  # Nach vorhandenem Template suchen (genauer Match)
+  TEMPLATE_PATH=$(pvesm list "$STORAGE" 2>/dev/null | grep -i "debian.*12.*standard" | awk '{print $1}' | head -1)
+
   if [[ -z "$TEMPLATE_PATH" ]]; then
-    echo -e "${CYAN}▶ Lade Template ${TEMPLATE} herunter...${NC}"
+    echo -e "${CYAN}▶ Suche neuestes Debian 12 Template...${NC}" >&2
     pveam update 2>/dev/null || true
-    pveam download "$STORAGE" "$TEMPLATE".tar.zst 2>/dev/null || {
-      # Fallback: template in der Storage-Liste suchen
-      pveam available | grep -i "$TEMPLATE" | head -1 | awk '{print $2}' | xargs -I{} pveam download "$STORAGE" {} 2>/dev/null || true
-    }
-    TEMPLATE_PATH=$(pvesm list "$STORAGE" 2>/dev/null | grep "$TEMPLATE" | awk '{print $1}' | head -1)
+    # Template-Namen aus der verfügbaren Liste holen
+    local AVAIL_TEMPLATE
+    AVAIL_TEMPLATE=$(pveam available 2>/dev/null | grep -i "debian-12-standard" | awk '{print $2}' | sort -V | tail -1)
+    if [[ -n "$AVAIL_TEMPLATE" ]]; then
+      echo -e "${CYAN}▶ Lade ${AVAIL_TEMPLATE} herunter...${NC}" >&2
+      pveam download "$STORAGE" "$AVAIL_TEMPLATE" 2>&1 | tail -1
+      TEMPLATE_PATH=$(pvesm list "$STORAGE" 2>/dev/null | grep -i "debian.*12.*standard" | awk '{print $1}' | head -1)
+    fi
   fi
+
+  if [[ -z "$TEMPLATE_PATH" ]]; then
+    echo -e "${RED}✗ Kein Debian 12 Template gefunden!${NC}" >&2
+    echo -e "${YELLOW}  Verfügbar:${NC}" >&2
+    pveam available 2>/dev/null | grep debian | awk '{print "  " $2}' | head -10 >&2
+  fi
+
   echo "$TEMPLATE_PATH"
 }
 
@@ -145,7 +159,7 @@ show_menu() {
   echo -e "  Installiert NetViren in einem neuen LXC Container"
   echo ""
   echo -e "  ${YELLOW}Schritte:${NC}"
-  echo -e "  1. LXC Container wird erstellt (Debian 12)"
+  echo -e "  1. LXC Container wird erstellt"
   echo -e "  2. Node.js + Python + Nmap werden installiert"
   echo -e "  3. NetViren API + Frontend + Scanner werden eingerichtet"
   echo -e "  4. Dashboards sind via Browser erreichbar"
