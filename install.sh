@@ -161,10 +161,12 @@ if [[ -t 0 ]]; then
     break
   done
 else
-  # Automatisch: Zufallspasswort generieren
+  # Automatisch: Zufallspasswort generieren + in Datei speichern
   ADMIN_USER="admin"
   ADMIN_PASS=$(tr -dc 'A-Za-z0-9' </dev/urandom 2>/dev/null | head -c 12 || echo "netviren$(date +%s)")
-  echo -e "${CY}  Admin: ${ADMIN_USER} / ${ADMIN_PASS}${NC}"
+  echo "$ADMIN_PASS" > /etc/netviren/admin-password 2>/dev/null || true
+  chmod 600 /etc/netviren/admin-password 2>/dev/null || true
+  echo -e "${CY}  Admin-Passwort gespeichert in: /etc/netviren/admin-password${NC}"
 fi
 
 export ADMIN_PASS ADMIN_USER ADMIN_DB_DIR="${DB_DIR}"
@@ -319,7 +321,11 @@ echo -e "${GREEN}  NetViren installation complete!${NC}"
 echo -e "${GREEN}══════════════════════════════════════════════${NC}"
 echo ""
 echo -e "  ${CYAN}Dashboard:${NC}  http://${PUBLIC_IP}:3001"
-echo -e "  ${CYAN}Login:${NC}      ${ADMIN_USER} / ${ADMIN_PASS}"
+if [[ -t 0 ]]; then
+  echo -e "  ${CYAN}Login:${NC}      ${ADMIN_USER} / ${ADMIN_PASS}"
+else
+  echo -e "  ${CYAN}Login:${NC}      ${ADMIN_USER} / siehe cat /etc/netviren/admin-password"
+fi
 echo ""
 echo -e "  ${CYAN}Services:${NC}"
 echo "    netviren-api              (Fastify API)"
