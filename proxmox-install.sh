@@ -3,179 +3,229 @@
 # NetViren - Proxmox VE Installer
 # https://github.com/naix1337/networkvirusscanner
 # ═══════════════════════════════════════════════════════════
-
-set -o pipefail
-
-# ───── Farben ─────
-RD="\033[01;31m"; GR="\033[01;32m"; YW="\033[01;33m"; BL="\033[01;34m"; CY="\033[01;36m"; NC="\033[0m"
-
-# ───── Header ─────
-header() {
-  clear
-  cat <<"EOF"
-   ╔═══════════════════════════════════════════════╗
-   ║        🛡️  NetViren - LXC Installer           ║
-   ║   Network Security Platform                   ║
-   ╚═══════════════════════════════════════════════╝
-EOF
-  echo ""
-}
-
-# ───── Ausgabe ─────
-step() { echo -e "${CY}  ▪ ${1}${NC}"; }
-ok()   { echo -e "${GR}  ✓ ${1}${NC}"; }
-warn() { echo -e "${YW}  ⚠ ${1}${NC}"; }
-fail() { echo -e "${RD}  ✗ ${1}${NC}"; exit 1; }
-
-# ───── Sichere Übergabe: stdin kommt von Pipe → /dev/tty für Eingabe ─────
-if [[ ! -t 0 ]]; then
-  STDIN="</dev/tty"
-else
-  STDIN=""
-fi
-
-# ───── Prüfung ─────
-if ! command -v pct &>/dev/null; then
-  fail "Dieses Script muss auf einem Proxmox VE Host ausgeführt werden"
-fi
-
+# Usage: bash <(curl -sSL https://github.com/naix1337/networkvirusscanner/raw/master/proxmox-install.sh)
 # ═══════════════════════════════════════════════════════════
-header
 
-echo -e "${YW}  Wähle Installationsmodus:${NC}"
-echo ""
-echo -e "  ${GR}1)${NC} Standard  — 8GB Disk, 2 Cores, 2GB RAM, DHCP"
-echo -e "  ${GR}2)${NC} Advanced  — Eigene Einstellungen"
-echo ""
+# Whiptail colors
+export NEWT_COLORS='
+root=,blue
+roottext=white,blue
+title=white,blue
+roottext=white,blue
+checkbox=white,blue
+entry=white,blue
+label=cyan,blue
+actlistbox=white,blue
+helpline=white,blue
+roottext=white,blue
+emptylisttext=white,blue
+textbox=white,blue
+actsellistbox=white,blue
+'
 
-while true; do
-  eval "read -p \"  Auswahl (1/2): \" choice $STDIN"
-  case "$choice" in
-    1) CT_DISK="8"; CT_CORES="2"; CT_RAM="2048"; CT_IP="dhcp"; break ;;
-    2) break ;;
-    *) echo -e "${RD}  Ungültig${NC}" ;;
-  esac
-done
-
-if [[ "$choice" == "2" ]]; then
-  echo ""
-  CT_ID="" CT_HOSTNAME="netviren" CT_RAM="2048" CT_CORES="2" CT_DISK="8" CT_IP="dhcp" CT_PASSWORD=""
-  eval "read -p \"  Container-ID (Enter = automatisch): \" CT_ID $STDIN"
-  [[ -z "$CT_ID" ]] && CT_ID=$(pvesh get /cluster/nextid 2>/dev/null || echo "100")
-  eval "read -p \"  Hostname [\$CT_HOSTNAME]: \" input $STDIN"; CT_HOSTNAME=${input:-$CT_HOSTNAME}
-  eval "read -p \"  RAM in MB [\$CT_RAM]: \" input $STDIN"; CT_RAM=${input:-$CT_RAM}
-  eval "read -p \"  CPU Cores [\$CT_CORES]: \" input $STDIN"; CT_CORES=${input:-$CT_CORES}
-  eval "read -p \"  Disk in GB [\$CT_DISK]: \" input $STDIN"; CT_DISK=${input:-$CT_DISK}
-  eval "read -p \"  IP (dhcp oder 192.168.1.100/24) [\$CT_IP]: \" input $STDIN"; CT_IP=${input:-$CT_IP}
-  eval "read -s -p \"  Root-Passwort (Enter = generieren): \" CT_PASSWORD $STDIN"; echo ""
+# ───── Prüfungen ─────
+if ! command -v pct &>/dev/null; then
+  echo -e "\n Fehler: Dieses Script muss auf einem Proxmox VE Host ausgeführt werden.\n"
+  exit 1
 fi
 
-# Defaults
-[[ -z "$CT_ID" ]] && CT_ID=$(pvesh get /cluster/nextid 2>/dev/null || echo "100")
-[[ -z "$CT_PASSWORD" ]] && CT_PASSWORD=$(openssl rand -base64 12)
+if ! command -v whiptail &>/dev/null; then
+  apt-get install -y whiptail &>/dev/null || echo "whiptail nicht verfügbar"
+fi
 
-header
-echo -e "${GR}  Container $CT_ID ($CT_HOSTNAME)"
-echo -e "  ${CT_RAM}MB RAM / ${CT_CORES} Cores / ${CT_DISK}GB / IP: ${CT_IP}${NC}"
+# ───── Variablen ─────
+CT_ID=""
+CT_HOSTNAME="netviren"
+CT_RAM="2048"
+CT_CORES="2"
+CT_DISK="8"
+CT_IP="dhcp"
+CT_PASSWORD=""
+CT_STORAGE=""
+TEMPLATE_PATH=""
+LOG="/tmp/netviren-installer.log"
+
+# ───── Terminal Zugriff ─────
+# Bei bash <(curl ...) ist stdin die Pipe.
+# read muss von /dev/tty lesen.
+if [[ -t 0 ]]; then
+  READ_CMD="read"
+else
+  READ_CMD="read </dev/tty"
+fi
+
+# ───── Hilfsfunktionen ─────
+msgbox()  { whiptail --title " NetViren Installer " --msgbox "$1" 12 65 2>&1; }
+yesno()   { whiptail --title " NetViren Installer " --yesno "$1" 12 65 2>&1; }
+input()   { whiptail --title " NetViren Installer " --inputbox "$1" 10 65 "$2" 2>&1; }
+password() { whiptail --title " NetViren Installer " --passwordbox "$1" 10 65 2>&1; }
+
+log() { echo "[$(date +%H:%M:%S)] $*" >>"$LOG"; }
+step() { echo "  ▪ $1"; }
+ok()   { echo "  ✓ $1"; }
+warn() { echo "  ⚠ $1"; }
+
+# ───── 1. HEADER ─────
+clear
+echo ""
+echo " ╔═══════════════════════════════════════════════╗"
+echo " ║       🛡️  NetViren - LXC Installer            ║"
+echo " ║        Network Security Platform              ║"
+echo " ╚═══════════════════════════════════════════════╝"
 echo ""
 
-# ───── 1. Template ─────
-step "Suche Debian 12 Template..."
-TEMPLATE_PATH=""
+# ───── 2. MODUS ─────
+if whiptail --title " NetViren Installer " --yesno "Standard Modus — 8GB, 2 Cores, 2GB RAM, DHCP\n\nAbbruch mit ESC" 10 65 2>&1; then
+  # Standard Mode - defaults already set
+  :
+else
+  # Advanced Mode
+  CT_ID=$(input "Container-ID (leer = automatisch)" "")
+  CT_ID=${CT_ID:-$(pvesh get /cluster/nextid 2>/dev/null || echo "100")}
 
-# Nach vorhandenen Templates in allen Storages suchen
+  CT_HOSTNAME=$(input "Hostname" "$CT_HOSTNAME")
+  CT_RAM=$(input "RAM in MB" "$CT_RAM")
+  CT_CORES=$(input "CPU Cores" "$CT_CORES")
+  CT_DISK=$(input "Disk in GB" "$CT_DISK")
+  CT_IP=$(input "IP (z.B. 192.168.1.100/24 oder dhcp)" "$CT_IP")
+  CT_PASSWORD=$(password "Root-Passwort (leer = generieren)")
+fi
+
+# Defaults setzen
+[[ -z "$CT_ID" ]] && CT_ID=$(pvesh get /cluster/nextid 2>/dev/null || echo "100")
+[[ -z "$CT_PASSWORD" ]] && CT_PASSWORD=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16 2>/dev/null || echo "netviren$(date +%s)")
+
+# ───── 3. TEMPLATE ─────
+clear
+echo ""
+echo " ╔═══════════════════════════════════════════════╗"
+echo " ║       🛡️  NetViren - Installation läuft       ║"
+echo " ╚═══════════════════════════════════════════════╝"
+echo ""
+
+step "Suche Debian 12 Template..."
+
+# In allen Storages suchen
 while read -r ST; do
   [[ -z "$ST" ]] && continue
   TEMPLATE_PATH=$(pvesm list "$ST" 2>/dev/null | grep -i "debian" | awk '{print $1}' | head -1)
   [[ -n "$TEMPLATE_PATH" ]] && break
-done < <(pvesm status 2>/dev/null | awk 'NR>1{print $1}' || echo "")
+done < <(pvesm status 2>/dev/null | awk 'NR>1{print $1}')
 
-# Falls keins gefunden: herunterladen
+# Kein Template gefunden → runterladen
 if [[ -z "$TEMPLATE_PATH" ]]; then
-  echo ""
-  warn "Kein Debian Template lokal gefunden."
-  step "Suche in verfügbaren Templates..."
-
-  # pveam update mit Timeout
   if command -v timeout &>/dev/null; then
-    timeout 30 pveam update &>/dev/null || true
+    step "Aktualisiere Template-Liste..."
+    timeout 20 pveam update &>/dev/null || true
   fi
 
-  # Template-Liste anzeigen
-  echo ""
-  echo -e "${CY}Verfügbare Templates:${NC}"
-  pveam available 2>/dev/null | grep -iE "debian|ubuntu" | awk '{print "  " $2}' | head -15 || echo "  (keine gefunden)"
-  echo ""
-
-  # Template-Name vom User
-  eval "read -p \"  Template-Name eingeben (Enter = abbrechen): \" AVAIL_TEMPLATE $STDIN"
-  if [[ -z "$AVAIL_TEMPLATE" ]]; then
-    fail "Abbruch. Manuell: pveam download local debian-12-standard_12.7-1_amd64.tar.zst"
+  # Verfügbare Templates
+  TEMPLATE_LIST=$(pveam available 2>/dev/null | grep -iE "debian|ubuntu" | awk '{print $2}' | head -20)
+  if [[ -z "$TEMPLATE_LIST" ]]; then
+    echo ""
+    echo "  ⚠  Keine Templates in pveam verfügbar."
+    echo "  Bitte lade manuell ein Template herunter:"
+    echo "  pveam download local debian-12-standard_12.7-1_amd64.tar.zst"
+    echo "  Dann: pvesm list local | grep debian"
+    echo ""
+    eval "$READ_CMD -p '  Enter drücken nach manuellem Download... '"
+    exit 1
   fi
 
-  step "Lade ${AVAIL_TEMPLATE} herunter..."
-  pveam download "local" "$AVAIL_TEMPLATE" 2>&1 | tail -3 || \
-    fail "Download fehlgeschlagen (pveam download local $AVAIL_TEMPLATE)"
+  # Template-Auswahl via whiptail
+  RADIOLIST=()
+  while IFS= read -r tmpl; do
+    [[ -z "$tmpl" ]] && continue
+    RADIOLIST+=("$tmpl" "$tmpl" "OFF")
+  done <<< "$TEMPLATE_LIST"
+
+  if [[ ${#RADIOLIST[@]} -eq 0 ]]; then
+    echo "  ✗ Keine Templates verfügbar."
+    exit 1
+  fi
+
+  SELECTED=$(whiptail --title " Template Auswahl " --radiolist "Wähle ein Template:" 20 70 10 "${RADIOLIST[@]}" 2>&1)
+  if [[ -z "$SELECTED" ]]; then
+    echo "  ✗ Abgebrochen."
+    exit 1
+  fi
+
+  step "Lade ${SELECTED}..."
+  pveam download "local" "$SELECTED" 2>&1 | while IFS= read -r line; do
+    echo "     $line"
+  done
+
+  if [[ $? -ne 0 ]]; then
+    echo "  ✗ Download fehlgeschlagen."
+    exit 1
+  fi
+
   sleep 2
-
-  # Nach dem Download suchen
   while read -r ST; do
     [[ -z "$ST" ]] && continue
-    TEMPLATE_PATH=$(pvesm list "$ST" 2>/dev/null | grep "$(echo "$AVAIL_TEMPLATE" | sed 's/\.tar\.zst//')" | awk '{print $1}' | head -1)
+    TEMPLATE_PATH=$(pvesm list "$ST" 2>/dev/null | grep "$(echo "$SELECTED" | sed 's/\.tar\.zst//')" | awk '{print $1}' | head -1)
     [[ -n "$TEMPLATE_PATH" ]] && break
-  done < <(pvesm status 2>/dev/null | awk 'NR>1{print $1}' || echo "")
-
-  # Fallback
-  [[ -z "$TEMPLATE_PATH" ]] && TEMPLATE_PATH="local:vztmpl/${AVAIL_TEMPLATE}"
+  done < <(pvesm status 2>/dev/null | awk 'NR>1{print $1}')
+  [[ -z "$TEMPLATE_PATH" ]] && TEMPLATE_PATH="local:vztmpl/${SELECTED}"
 fi
 
-ok "Template: $(basename "$TEMPLATE_PATH" 2>/dev/null || echo "$TEMPLATE_PATH")"
+ok "Template gefunden"
 
-# ───── 2. Container ─────
-step "Erstelle Container $CT_ID..."
-
-# Storage für den Container ermitteln
-CT_STORAGE="local"
+# ───── 4. STORAGE ─────
 CT_STORAGE=$(pvesm status 2>/dev/null | grep -i "active" | awk '{print $1}' | head -1)
 [[ -z "$CT_STORAGE" ]] && CT_STORAGE="local"
 
-if ! pct create "$CT_ID" "$TEMPLATE_PATH" \
+# ───── 5. CONTAINER ─────
+step "Erstelle Container $CT_ID..."
+
+PASSWORD_ESC=$(echo "$CT_PASSWORD" | sed 's/"/\\"/g')
+
+pct create "$CT_ID" "$TEMPLATE_PATH" \
   --hostname "$CT_HOSTNAME" \
   --storage "$CT_STORAGE" \
   --rootfs "${CT_STORAGE}:${CT_DISK}" \
-  --cores "$CT_CORES" --memory "$CT_RAM" \
+  --cores "$CT_CORES" \
+  --memory "$CT_RAM" \
   --net0 name=eth0,bridge=vmbr0,ip="$CT_IP" \
-  --unprivileged 1 --features nesting=1 \
-  --password "$CT_PASSWORD" --start 1 2>&1; then
-  fail "Container-Erstellung fehlgeschlagen"
+  --unprivileged 1 \
+  --features nesting=1 \
+  --password "$CT_PASSWORD" \
+  --start 1 2>&1 | while IFS= read -r line; do
+    echo "     $line"
+  done
+
+if [[ $? -ne 0 ]]; then
+  echo "  ✗ Container-Erstellung fehlgeschlagen."
+  exit 1
 fi
 ok "Container $CT_ID erstellt"
 
 sleep 3
 
-# ───── 3. NetViren ─────
-step "Installiere NetViren im Container (ca. 5-10 Min)..."
-step "Dies kann eine Weile dauern — keine Eingabe nötig"
+# ───── 6. NETVIREN ─────
+echo ""
+step "Installiere NetViren im Container..."
+step "Das kann 5-15 Minuten dauern — bitte warten..."
 
-if pct exec "$CT_ID" -- bash -c "
-  export DEBIAN_FRONTEND=noninteractive LANG=C
+pct exec "$CT_ID" -- bash -c "
+  export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq >/dev/null 2>&1
-  apt-get install -y -qq curl git openssl >/dev/null 2>&1
-  bash <(curl -sSL https://github.com/naix1337/networkvirusscanner/raw/master/install.sh) </dev/null
-" 2>&1; then
-  ok "NetViren installiert"
-else
-  warn "Installation hatte Warnungen (pct enter $CT_ID zum Prüfen)"
-fi
+  apt-get install -y -qq curl git openssl locales >/dev/null 2>&1 || true
+  bash <(curl -sSL https://github.com/naix1337/networkvirusscanner/raw/master/install.sh)
+" 2>&1 | while IFS= read -r line; do
+  echo "     $line"
+done
 
-# ───── 4. Info ─────
-CT_IP_ADDR=$(pct exec "$CT_ID" -- hostname -I 2>/dev/null | awk '{print $1}' || echo "")
+CT_IP_ADDR=$(pct exec "$CT_ID" -- hostname -I 2>/dev/null | awk '{print $1}')
 
+# ───── 7. FERTIG ─────
 echo ""
-echo -e "${GR}  ✅  NetViren installiert!${NC}"
+echo " ╔═══════════════════════════════════════════════╗"
+echo " ║     ✅  NetViren installiert!                 ║"
+echo " ╚═══════════════════════════════════════════════╝"
 echo ""
-echo -e "  ${CY}Container:${NC}  $CT_ID ($CT_HOSTNAME)"
-echo -e "  ${CY}Zugriff:${NC}    pct enter $CT_ID"
-[[ -n "$CT_IP_ADDR" ]] && echo -e "  ${CY}Dashboard:${NC}  http://${CT_IP_ADDR}:3001"
-echo -e "  ${CY}Passwort:${NC}   $CT_PASSWORD"
+echo "  Container:   $CT_ID ($CT_HOSTNAME)"
+echo "  Zugriff:     pct enter $CT_ID"
+[[ -n "$CT_IP_ADDR" ]] && echo "  Dashboard:   http://${CT_IP_ADDR}:3001"
+echo "  Passwort:    $CT_PASSWORD"
 echo ""
