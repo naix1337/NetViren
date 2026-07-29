@@ -54,12 +54,16 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     return reply.status(201).send({ agent: { ...(agent as any), auth_token: authToken } });
   });
 
-  // Agent heartbeat
+  // Agent heartbeat (token-authenticated)
   app.post('/api/agents/:id/heartbeat', async (req, reply) => {
     const { id } = req.params as { id: string };
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return reply.status(401).send({ error: 'Unauthorized', message: 'Missing token' });
     const db = getDb();
     const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(id) as any;
     if (!agent) return reply.status(404).send({ error: 'Not found' });
+    if (agent.auth_token !== token) return reply.status(403).send({ error: 'Forbidden', message: 'Invalid token' });
     db.prepare("UPDATE agents SET status = 'online', last_heartbeat = datetime('now'), ip_address = COALESCE(?, ip_address) WHERE id = ?")
       .run((req.body as any)?.ipAddress ?? null, id);
     return { status: 'ok' };
