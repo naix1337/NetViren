@@ -140,24 +140,32 @@ timeout 5 node dist/index.js 2>/dev/null || true
 ok "Database initialized"
 
 echo ""
-echo -e "${YELLOW}────────── Create Admin User ──────────${NC}"
-read -p "  Username [admin]: " ADMIN_USER
-ADMIN_USER=${ADMIN_USER:-admin}
-while true; do
-  read -s -p "  Password: " ADMIN_PASS
-  echo ""
-  if [[ ${#ADMIN_PASS} -lt 8 ]]; then
-    echo -e "${RED}  Password must be at least 8 characters${NC}"
-    continue
-  fi
-  read -s -p "  Confirm: " ADMIN_PASS2
-  echo ""
-  if [[ "$ADMIN_PASS" != "$ADMIN_PASS2" ]]; then
-    echo -e "${RED}  Passwords do not match${NC}"
-    continue
-  fi
-  break
-done
+if [[ -t 0 ]]; then
+  # Interaktiv: Passwort vom Benutzer
+  echo -e "${YELLOW}────────── Create Admin User ──────────${NC}"
+  read -p "  Username [admin]: " ADMIN_USER
+  ADMIN_USER=${ADMIN_USER:-admin}
+  while true; do
+    read -s -p "  Password: " ADMIN_PASS
+    echo ""
+    if [[ ${#ADMIN_PASS} -lt 8 ]]; then
+      echo -e "${RED}  Password must be at least 8 characters${NC}"
+      continue
+    fi
+    read -s -p "  Confirm: " ADMIN_PASS2
+    echo ""
+    if [[ "$ADMIN_PASS" != "$ADMIN_PASS2" ]]; then
+      echo -e "${RED}  Passwords do not match${NC}"
+      continue
+    fi
+    break
+  done
+else
+  # Automatisch: Zufallspasswort generieren
+  ADMIN_USER="admin"
+  ADMIN_PASS=$(tr -dc 'A-Za-z0-9' </dev/urandom 2>/dev/null | head -c 12 || echo "netviren$(date +%s)")
+  echo -e "${CY}  Admin: ${ADMIN_USER} / ${ADMIN_PASS}${NC}"
+fi
 
 export ADMIN_PASS ADMIN_USER ADMIN_DB_DIR="${DB_DIR}"
 
@@ -311,7 +319,7 @@ echo -e "${GREEN}  NetViren installation complete!${NC}"
 echo -e "${GREEN}══════════════════════════════════════════════${NC}"
 echo ""
 echo -e "  ${CYAN}Dashboard:${NC}  http://${PUBLIC_IP}:3001"
-echo -e "  ${CYAN}Login:${NC}      ${ADMIN_USER} / <your-password>"
+echo -e "  ${CYAN}Login:${NC}      ${ADMIN_USER} / ${ADMIN_PASS}"
 echo ""
 echo -e "  ${CYAN}Services:${NC}"
 echo "    netviren-api              (Fastify API)"
