@@ -113,27 +113,48 @@ for ST in $(pvesm status 2>/dev/null | awk '{print $1}'); do
 done
 
 if [[ -z "$TEMPLATE_PATH" ]]; then
-  step "Lade Template herunter..."
-  pveam update &>/dev/null || true
-  AVAIL_TEMPLATE=$(pveam available 2>/dev/null | grep -i "debian-12-standard" | awk '{print $2}' | sort -V | tail -1)
+  # Sicherstellen dass timeout verfügbar ist
+  command -v timeout &>/dev/null || { apt-get update -qq && apt-get install -y -qq coreutils; } &>/dev/null || true
+  step "Suche verfügbare Templates..."
+  timeout 15 pveam update &>/dev/null || warn "pveam update — verwende gecachte Liste"
+  # Template-Namen flexibler suchen
+  AVAIL_TEMPLATE=$(pveam available 2>/dev/null | grep -i "debian.*12.*standard" | awk '{print $2}' | sort -V | tail -1)
   if [[ -z "$AVAIL_TEMPLATE" ]]; then
-    fail "Kein Debian 12 Template verfügbar"
+    AVAIL_TEMPLATE=$(pveam available 2>/dev/null | grep -i "debian.*12" | awk '{print $2}' | sort -V | tail -1)
   fi
-  # Download in local storage (oder ersten passenden)
-  DL_STORAGE="local"; pvesm list "$DL_STORAGE" &>/dev/null || DL_STORAGE=$(pvesm status 2>/dev/null | head -1 | awk '{print $1}')
-  pveam download "$DL_STORAGE" "$AVAIL_TEMPLATE" &>/tmp/netviren-install.log
-  TEMPLATE_PATH=$(pvesm list "$DL_STORAGE" 2>/dev/null | grep -i "debian.*12.*standard" | awk '{print $1}' | head -1)
+  if [[ -z "$AVAIL_TEMPLATE" ]]; then
+    AVAIL_TEMPLATE=$(pveam available 2>/dev/null | grep -i "ubuntu.*24.*04" | awk '{print $2}' | sort -V | tail -1)
+  fi
+  if [[ -z "$AVAIL_TEMPLATE" ]]; then
+    fail "Kein Debian/Ubuntu Template verfügbar. Manuell: pveam download local debian-12-standard_12.7-1_amd64.tar.zst"
+  fi
+  step "Lade ${AVAIL_TEMPLATE}..."
+  DL_STORAGE="local"
+  pvesm list "$DL_STORAGE" &>/dev/null || DL_STORAGE=$(pvesm status 2>/dev/null | head -1 | awk '{print $1}')
+  timeout 120 pveam download "$DL_STORAGE" "$AVAIL_TEMPLATE" &>/tmp/netviren-install.log || \
+    fail "Download fehlgeschlagen (siehe Log). Manuell: pveam download $DL_STORAGE $AVAIL_TEMPLATE"
+  # Template in allen Storages suchen
+  for ST in $(pvesm status 2>/dev/null | awk '{print $1}'); do
+    TEMPLATE_PATH=$(pvesm list "$ST" 2>/dev/null | grep -i "$(echo $AVAIL_TEMPLATE | sed 's/\.tar\.zst//')" | awk '{print $1}' | head -1)
+    [[ -n "$TEMPLATE_PATH" ]] && break
+  done
   [[ -n "$TEMPLATE_PATH" ]] || fail "Template nach Download nicht gefunden"
 fi
-ok "Template gefunden"
+ok "Template: $(basename $TEMPLATE_PATH)"
 
 # ───── 2. Container ─────
 step "Erstelle Container $CT_ID..."
 LOG=""
+# Storage ermitteln (ersten aktiven Storage nehmen, der nicht "dir" ist)
+CT_STORAGE="local-lvm"
+pvesm status 2>/dev/null | grep -i "active" | grep -v "dir" | head -1 | awk '{print $1}' || CT_STORAGE="local"
+CT_STORAGE=$(pvesm status 2>/dev/null | grep -i "active" | grep -v "dir" | head -1 | awk '{print $1}')
+[[ -n "$CT_STORAGE" ]] || CT_STORAGE="local"
+
 if pct create "$CT_ID" "$TEMPLATE_PATH" \
   --hostname "$CT_HOSTNAME" \
-  --storage "$(pvesm status 2>/dev/null | grep -v "name\|dir" | head -1 | awk '{print $1}')" \
-  --rootfs "$(pvesm status 2>/dev/null | grep -v "name\|dir" | head -1 | awk '{print $1}'):$CT_DISK" \
+  --storage "$CT_STORAGE" \
+  --rootfs "${CT_STORAGE}:${CT_DISK}" \
   --cores "$CT_CORES" --memory "$CT_RAM" \
   --net0 name=eth0,bridge=vmbr0,ip="$CT_IP" \
   --unprivileged 1 --features nesting=1 \
