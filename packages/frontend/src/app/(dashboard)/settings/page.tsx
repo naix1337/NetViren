@@ -205,13 +205,26 @@ function DiscordTab() {
 
 function UsersTab() {
   const t = useTranslations();
+  const [loading, setLoading] = React.useState(true);
+  const [data, setData] = React.useState<any[]>([]);
+  const [error, setError] = React.useState(false);
 
-  const mockUsers = [
-    { id: '1', username: 'admin', email: 'admin@netviren.local', role: 'admin', active: true, lastLogin: '2026-07-28 14:30' },
-    { id: '2', username: 'analyst1', email: 'analyst1@netviren.local', role: 'analyst', active: true, lastLogin: '2026-07-28 12:00' },
-    { id: '3', username: 'analyst2', email: 'analyst2@netviren.local', role: 'analyst', active: true, lastLogin: '2026-07-27 16:00' },
-    { id: '4', username: 'viewer1', email: 'viewer1@netviren.local', role: 'viewer', active: false, lastLogin: '2026-07-25 09:00' },
-  ];
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch('/api/users');
+        if (!res.ok) throw new Error('Failed to fetch');
+        const result = await res.json();
+        setData(result?.users || []);
+      } catch {
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -224,32 +237,44 @@ function UsersTab() {
           <CardDescription>Manage user accounts and permissions</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 flex justify-end">
-            <Button size="sm">
-              <Users className="h-4 w-4 mr-1" />
-              {t('users.add_user')}
-            </Button>
-          </div>
-          <div className="divide-y divide-border-default">
-            {mockUsers.map((user) => (
-              <div key={user.id} className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-cyan/10 text-xs font-medium text-accent-cyan">
-                    {user.username.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">{user.username}</p>
-                    <p className="text-xs text-text-muted">{user.email}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-text-secondary capitalize">{user.role}</span>
-                  <Switch checked={user.active} />
-                  <Button variant="ghost" size="sm" className="text-text-muted">Edit</Button>
-                </div>
+          {loading ? (
+            <p className="text-sm text-text-muted py-4 text-center">Loading users...</p>
+          ) : error ? (
+            <p className="text-sm text-text-muted py-4 text-center">Failed to load users</p>
+          ) : (
+            <>
+              <div className="mb-4 flex justify-end">
+                <Button size="sm">
+                  <Users className="h-4 w-4 mr-1" />
+                  {t('users.add_user')}
+                </Button>
               </div>
-            ))}
-          </div>
+              <div className="divide-y divide-border-default">
+                {data.length === 0 ? (
+                  <p className="text-sm text-text-muted py-4 text-center">No users found</p>
+                ) : (
+                  data.map((user) => (
+                    <div key={user.id} className="flex items-center justify-between py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-cyan/10 text-xs font-medium text-accent-cyan">
+                          {user.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-text-primary">{user.username}</p>
+                          <p className="text-xs text-text-muted">{user.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-text-secondary capitalize">{user.role}</span>
+                        <Switch checked={user.active} />
+                        <Button variant="ghost" size="sm" className="text-text-muted">Edit</Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

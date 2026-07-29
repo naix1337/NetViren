@@ -19,18 +19,6 @@ import { StatusPulse } from '@/components/shared/StatusPulse';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Search, Filter, Scan, RefreshCw, Map, LayoutList } from 'lucide-react';
 
-// Mock data
-const mockDevices = [
-  { id: '1', ip: '192.168.1.1', mac: '00:11:22:33:44:01', hostname: 'gateway', os: 'Linux', vendor: 'Ubiquiti', ports: 8, threat: 12, lastSeen: '2m ago', online: true },
-  { id: '2', ip: '192.168.1.100', mac: '00:11:22:33:44:02', hostname: 'server-01', os: 'Windows Server 2022', vendor: 'Dell', ports: 14, threat: 45, lastSeen: '1m ago', online: true },
-  { id: '3', ip: '192.168.1.101', mac: '00:11:22:33:44:03', hostname: 'server-02', os: 'Ubuntu 24.04', vendor: 'HP', ports: 6, threat: 8, lastSeen: '5m ago', online: true },
-  { id: '4', ip: '192.168.1.105', mac: '00:11:22:33:44:04', hostname: 'workstation-01', os: 'Windows 11', vendor: 'Lenovo', ports: 22, threat: 67, lastSeen: '10m ago', online: true },
-  { id: '5', ip: '192.168.1.200', mac: '00:11:22:33:44:05', hostname: 'printer-03', os: 'Embedded', vendor: 'HP', ports: 3, threat: 5, lastSeen: '2h ago', online: false },
-  { id: '6', ip: '10.0.0.1', mac: '00:11:22:33:44:06', hostname: 'core-switch', os: 'IOS', vendor: 'Cisco', ports: 24, threat: 18, lastSeen: '30s ago', online: true },
-  { id: '7', ip: '10.0.0.100', mac: '00:11:22:33:44:07', hostname: 'db-server', os: 'Debian 12', vendor: 'SuperMicro', ports: 5, threat: 22, lastSeen: '1m ago', online: true },
-  { id: '8', ip: '192.168.2.50', mac: '00:11:22:33:44:08', hostname: 'cam-01', os: 'Embedded Linux', vendor: 'Hikvision', ports: 2, threat: 35, lastSeen: '30m ago', online: true },
-];
-
 const threatColor = (score: number) => {
   if (score <= 15) return 'success';
   if (score <= 40) return 'warning';
@@ -39,11 +27,29 @@ const threatColor = (score: number) => {
 
 export default function DevicesPage() {
   const t = useTranslations();
-  const [loading] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [data, setData] = React.useState<any[]>([]);
+  const [error, setError] = React.useState(false);
   const [viewMode, setViewMode] = React.useState<'table' | 'map'>('table');
   const [search, setSearch] = React.useState('');
 
-  const filtered = mockDevices.filter(
+  React.useEffect(() => {
+    fetch('/api/devices')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch');
+        return res.json();
+      })
+      .then((json) => {
+        setData(json.devices || []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
+  }, []);
+
+  const filtered = data.filter(
     (d) =>
       d.ip.includes(search) ||
       d.hostname?.toLowerCase().includes(search.toLowerCase()) ||
@@ -55,6 +61,14 @@ export default function DevicesPage() {
       <div className="space-y-4">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-96 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-text-muted">Failed to load devices. Please try again.</p>
       </div>
     );
   }
@@ -114,7 +128,7 @@ export default function DevicesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {filtered.length === 0 || data.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center text-text-muted py-8">
                     {t('devices.no_devices')}
@@ -124,7 +138,7 @@ export default function DevicesPage() {
                 filtered.map((device) => (
                   <TableRow key={device.id} className="cursor-pointer">
                     <TableCell>
-                      <StatusPulse status={device.online ? 'online' : 'offline'} size="sm" />
+                      <StatusPulse status={device.is_active ? 'online' : 'offline'} size="sm" />
                     </TableCell>
                     <TableCell className="font-mono text-xs text-text-primary">{device.ip}</TableCell>
                     <TableCell className="font-mono text-xs text-text-secondary">{device.mac}</TableCell>
@@ -135,9 +149,11 @@ export default function DevicesPage() {
                       <Badge variant="default">{device.ports}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={threatColor(device.threat)}>{device.threat}</Badge>
+                      <Badge variant={threatColor(device.threat_score)}>{device.threat_score}</Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-text-muted">{device.lastSeen}</TableCell>
+                    <TableCell className="text-xs text-text-muted">
+                      {device.last_seen ? new Date(device.last_seen + 'Z').toLocaleString() : '-'}
+                    </TableCell>
                   </TableRow>
                 ))
               )}

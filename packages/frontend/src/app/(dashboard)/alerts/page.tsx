@@ -17,19 +17,6 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Bell, CheckCheck, Filter, RefreshCw, AlertTriangle, Monitor, Scan, Bot } from 'lucide-react';
 
-const mockAlerts = [
-  { id: '1', type: 'new_device', severity: 'critical' as const, title: 'New device detected on subnet 192.168.1.0/24', description: 'Unknown device with IP 192.168.1.205 has appeared on the network', timestamp: '2026-07-28T14:32:00', isRead: false },
-  { id: '2', type: 'threat', severity: 'high' as const, title: 'Suspicious port scan detected', description: 'Port scan targeting 10.0.0.0/24 from external IP 203.0.113.45', timestamp: '2026-07-28T14:15:00', isRead: false },
-  { id: '3', type: 'agent_offline', severity: 'medium' as const, title: 'Agent Linux-03 heartbeat missed', description: 'No heartbeat received from Linux-03 for over 30 minutes', timestamp: '2026-07-28T13:45:00', isRead: true },
-  { id: '4', type: 'vt_hit', severity: 'high' as const, title: 'VirusTotal malicious detection', description: 'File "suspicious.exe" (SHA256: b2c3...) flagged as malicious by 5/68 vendors', timestamp: '2026-07-28T13:00:00', isRead: false },
-  { id: '5', type: 'scan_complete', severity: 'info' as const, title: 'Full scan completed', description: '10.0.0.0/24: 12 devices found, 34 open ports detected', timestamp: '2026-07-28T12:30:00', isRead: true },
-  { id: '6', type: 'port_change', severity: 'medium' as const, title: 'Port change detected on server-01', description: 'New port 8443/TCP opened on server-01 (192.168.1.100)', timestamp: '2026-07-28T11:00:00', isRead: true },
-  { id: '7', type: 'device_offline', severity: 'low' as const, title: 'Device offline: printer-03', description: 'Printer at 192.168.1.200 has been offline for over 2 hours', timestamp: '2026-07-28T10:00:00', isRead: true },
-  { id: '8', type: 'new_device', severity: 'low' as const, title: 'New device: iPhone-Admin', description: 'Device 192.168.1.150 - Apple iPhone - connected to WiFi', timestamp: '2026-07-28T09:30:00', isRead: true },
-  { id: '9', type: 'scan_complete', severity: 'info' as const, title: 'VirusTotal batch check complete', description: '15 hashes checked: 2 malicious, 12 clean, 1 unknown', timestamp: '2026-07-28T08:00:00', isRead: true },
-  { id: '10', type: 'threat', severity: 'critical' as const, title: 'Beaconing activity detected', description: '10.0.0.45 communicating with known C2 server (198.51.100.23) every 60s', timestamp: '2026-07-28T06:00:00', isRead: true },
-];
-
 const severityColors = {
   critical: 'danger' as const,
   high: 'danger' as const,
@@ -48,16 +35,34 @@ const typeIcons: Record<string, React.ReactNode> = {
   device_offline: <Monitor className="h-3.5 w-3.5" />,
 };
 
-const unreadCount = mockAlerts.filter((a) => !a.isRead).length;
-
 export default function AlertsPage() {
   const t = useTranslations();
-  const [loading] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [data, setData] = React.useState<any[]>([]);
+  const [error, setError] = React.useState(false);
   const [filterSeverity, setFilterSeverity] = React.useState('all');
 
+  React.useEffect(() => {
+    fetch('/api/alerts')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch');
+        return res.json();
+      })
+      .then((json) => {
+        setData(json.alerts || []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
+  }, []);
+
+  const unreadCount = data.filter((a) => !a.is_read).length;
+
   const filtered = filterSeverity === 'all'
-    ? mockAlerts
-    : mockAlerts.filter((a) => a.severity === filterSeverity);
+    ? data
+    : data.filter((a) => a.severity === filterSeverity);
 
   if (loading) {
     return (
@@ -68,12 +73,20 @@ export default function AlertsPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-text-muted">Failed to load alerts. Please try again.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-text-secondary">{mockAlerts.length} alerts</span>
+          <span className="text-sm text-text-secondary">{data.length} alerts</span>
           {unreadCount > 0 && (
             <Badge variant="danger">{unreadCount} unread</Badge>
           )}
@@ -124,7 +137,7 @@ export default function AlertsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {filtered.length === 0 || data.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-text-muted py-8">
                     <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -133,9 +146,9 @@ export default function AlertsPage() {
                 </TableRow>
               ) : (
                 filtered.map((alert) => (
-                  <TableRow key={alert.id} className={!alert.isRead ? 'bg-accent-cyan/[0.02]' : ''}>
+                  <TableRow key={alert.id} className={!alert.is_read ? 'bg-accent-cyan/[0.02]' : ''}>
                     <TableCell>
-                      {!alert.isRead && <span className="flex h-2 w-2 rounded-full bg-accent-cyan" />}
+                      {!alert.is_read && <span className="flex h-2 w-2 rounded-full bg-accent-cyan" />}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -146,18 +159,18 @@ export default function AlertsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={severityColors[alert.severity]}>{alert.severity}</Badge>
+                      <Badge variant={severityColors[alert.severity as keyof typeof severityColors]}>{alert.severity}</Badge>
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className={`text-sm ${!alert.isRead ? 'text-text-primary font-medium' : 'text-text-secondary'}`}>
+                        <p className={`text-sm ${!alert.is_read ? 'text-text-primary font-medium' : 'text-text-secondary'}`}>
                           {alert.title}
                         </p>
                         <p className="text-xs text-text-muted mt-0.5">{alert.description}</p>
                       </div>
                     </TableCell>
                     <TableCell className="text-right text-xs text-text-muted whitespace-nowrap">
-                      {alert.timestamp}
+                      {alert.created_at ? new Date(alert.created_at + 'Z').toLocaleString() : '-'}
                     </TableCell>
                   </TableRow>
                 ))

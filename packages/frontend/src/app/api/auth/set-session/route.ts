@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     // Set httpOnly cookie with JWT - not spoofable from client-side JS
     response.cookies.set('netviren_token', token, {
       httpOnly: true,
-      secure: false, // set to true in production with HTTPS
+      secure: true, // HTTPS is terminated by Caddy
       sameSite: 'lax',
       path: '/',
       maxAge: 7 * 24 * 60 * 60, // 7 days

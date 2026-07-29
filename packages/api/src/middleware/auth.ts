@@ -6,12 +6,27 @@ declare module 'fastify' {
 }
 
 export async function authMiddleware(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  let token: string | null = null;
+
+  // Check Authorization header first
   const authHeader = request.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
+  if (authHeader?.startsWith('Bearer ')) {
+    token = authHeader.slice(7);
+  }
+
+  // Fallback to netviren_token cookie (set by frontend after login)
+  if (!token) {
+    const cookie = request.headers.cookie;
+    if (cookie) {
+      const match = cookie.match(/netviren_token=([^;]+)/);
+      if (match) token = decodeURIComponent(match[1]);
+    }
+  }
+
+  if (!token) {
     reply.status(401).send({ error: 'Unauthorized', message: 'Missing token' });
     return;
   }
-  const token = authHeader.slice(7);
   const payload = verifyToken(token);
   if (!payload) {
     reply.status(401).send({ error: 'Unauthorized', message: 'Invalid token' });

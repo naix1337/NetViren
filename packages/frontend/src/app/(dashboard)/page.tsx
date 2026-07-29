@@ -19,45 +19,97 @@ import {
   RotateCcw,
 } from 'lucide-react';
 
-// Mock data for demonstration
-const mockStats = {
-  threatScore: 32,
-  devicesOnline: 14,
-  totalDevices: 24,
-  activeScans: 2,
-  recentAlerts: 7,
+const severityColors: Record<string, 'danger' | 'warning' | 'info' | 'default'> = {
+  critical: 'danger',
+  high: 'danger',
+  medium: 'warning',
+  low: 'info',
+  info: 'default',
 };
 
-const mockAlerts = [
-  { id: '1', severity: 'critical' as const, title: 'New device detected on subnet 192.168.1.0/24', time: '2m ago' },
-  { id: '2', severity: 'high' as const, title: 'Suspicious port scan detected from 10.0.0.45', time: '15m ago' },
-  { id: '3', severity: 'medium' as const, title: 'Agent Linux-03 heartbeat missed', time: '1h ago' },
-  { id: '4', severity: 'low' as const, title: 'Scan completed: 5 devices found', time: '2h ago' },
-  { id: '5', severity: 'info' as const, title: 'VirusTotal check: 2 files clean', time: '3h ago' },
-];
+interface DashboardStats {
+  threatScore: number;
+  devicesOnline: number;
+  totalDevices: number;
+  activeScans: number;
+  recentAlerts: number;
+}
 
-const mockActivity = [
-  { id: 'a1', type: 'scan', title: 'Quick scan started on 192.168.1.0/24', description: 'Scanning 254 hosts', timestamp: new Date(Date.now() - 30000).toISOString() },
-  { id: 'a2', type: 'alert', title: 'High severity alert: Suspicious connection', description: 'Beaconing detected from 10.0.0.45 to external IP', timestamp: new Date(Date.now() - 120000).toISOString() },
-  { id: 'a3', type: 'device', title: 'New device discovered: 192.168.1.105', description: 'Vendor: Intel, OS: Windows 11', timestamp: new Date(Date.now() - 300000).toISOString() },
-  { id: 'a4', type: 'agent', title: 'Agent heartbeat: Windows-02', description: 'Status: online, 45 files scanned', timestamp: new Date(Date.now() - 600000).toISOString() },
-  { id: 'a5', type: 'file', title: 'File scan complete: suspicious.exe', description: 'SHA256: a1b2...c3d4 - VT: malicious (3/68)', timestamp: new Date(Date.now() - 900000).toISOString() },
-  { id: 'a6', type: 'scan', title: 'Full scan completed on 10.0.0.0/24', description: '12 devices found, 34 open ports', timestamp: new Date(Date.now() - 1800000).toISOString() },
-  { id: 'a7', type: 'alert', title: 'Medium: Port change detected on server-01', description: 'New port 8443 opened', timestamp: new Date(Date.now() - 3600000).toISOString() },
-  { id: 'a8', type: 'device', title: 'Device offline: printer-03 (192.168.1.200)', description: 'Last seen: 2 hours ago', timestamp: new Date(Date.now() - 7200000).toISOString() },
-];
+interface DashboardAlert {
+  id: string;
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  title: string;
+  time: string;
+}
 
-const severityColors = {
-  critical: 'danger' as const,
-  high: 'danger' as const,
-  medium: 'warning' as const,
-  low: 'info' as const,
-  info: 'default' as const,
-};
+interface DashboardActivity {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  timestamp: string;
+}
 
 export default function DashboardPage() {
   const t = useTranslations();
-  const [loading] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(false);
+  const [stats, setStats] = React.useState<DashboardStats>({
+    threatScore: 0, devicesOnline: 0, totalDevices: 0,
+    activeScans: 0, recentAlerts: 0,
+  });
+  const [alerts, setAlerts] = React.useState<DashboardAlert[]>([]);
+  const [activity, setActivity] = React.useState<DashboardActivity[]>([]);
+
+  React.useEffect(() => {
+    Promise.all([
+      fetch('/api/devices').then(r => r.json()).catch(() => ({ devices: [] })),
+      fetch('/api/scans').then(r => r.json()).catch(() => ({ scans: [] })),
+      fetch('/api/alerts').then(r => r.json()).catch(() => ({ alerts: [] })),
+    ])
+      .then(([devicesData, scansData, alertsData]) => {
+        const deviceList = devicesData.devices || [];
+        const scanList = scansData.scans || [];
+        const alertList = alertsData.alerts || [];
+        const onlineDevices = deviceList.filter((d: any) => d.is_online || d.status === 'online').length;
+
+        setStats({
+          threatScore: Math.min(100, deviceList.reduce((acc: number, d: any) => acc + (d.threat_score || 0), 0)),
+          devicesOnline: onlineDevices,
+          totalDevices: deviceList.length,
+          activeScans: scanList.filter((s: any) => s.status === 'running').length,
+          recentAlerts: alertList.length,
+        });
+
+        setAlerts(alertList.slice(0, 5).map((a: any) => ({
+          id: a.id,
+          severity: a.severity || 'info',
+          title: a.title || '',
+          time: a.created_at ? new Date(a.created_at + 'Z').toLocaleString() : '',
+        })));
+
+        setActivity([
+          ...scanList.slice(0, 3).map((s: any) => ({
+            id: 'scan-' + s.id, type: 'scan',
+            title: `Scan: ${s.scan_type || s.type || ''}`,
+            description: `${s.status} — ${s.target || ''}`,
+            timestamp: s.started_at || s.created_at || '',
+          })),
+          ...alertList.slice(0, 5).map((a: any) => ({
+            id: 'alert-' + a.id, type: 'alert',
+            title: a.title || '',
+            description: a.description || '',
+            timestamp: a.created_at || '',
+          })),
+        ]);
+
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
+  }, []);
 
   if (loading) {
     return (
@@ -72,24 +124,31 @@ export default function DashboardPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center py-16 text-text-muted">
+        <p>Verbindung zum Server fehlgeschlagen</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Top Row: Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <ThreatGauge score={mockStats.threatScore} size="md" />
+        <ThreatGauge score={stats.threatScore} size="md" />
 
         <StatCard
           title={t('dashboard.devices_online')}
-          value={`${mockStats.devicesOnline}/${mockStats.totalDevices}`}
+          value={stats.totalDevices > 0 ? `${stats.devicesOnline}/${stats.totalDevices}` : '—'}
           icon={<Monitor className="h-4 w-4" />}
-          trend={{ value: 12, positive: true }}
           description="Total network devices"
           color="emerald"
         />
 
         <StatCard
           title={t('dashboard.active_scans')}
-          value={mockStats.activeScans}
+          value={stats.activeScans}
           icon={<Scan className="h-4 w-4" />}
           description="Currently running"
           color="cyan"
@@ -97,9 +156,8 @@ export default function DashboardPage() {
 
         <StatCard
           title={t('dashboard.recent_alerts')}
-          value={mockStats.recentAlerts}
+          value={stats.recentAlerts}
           icon={<Bell className="h-4 w-4" />}
-          trend={{ value: 8, positive: false }}
           description="Last 24 hours"
           color="red"
         />
@@ -118,32 +176,38 @@ export default function DashboardPage() {
           </Button>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="divide-y divide-border-default">
-            {mockAlerts.map((alert) => (
-              <div
-                key={alert.id}
-                className="flex items-center justify-between px-6 py-3 hover:bg-hover/50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className={cn(
-                    'h-4 w-4',
-                    alert.severity === 'critical' && 'text-accent-red',
-                    alert.severity === 'high' && 'text-accent-amber',
-                    alert.severity === 'medium' && 'text-accent-amber',
-                    alert.severity === 'low' && 'text-accent-cyan',
-                    alert.severity === 'info' && 'text-text-muted'
-                  )} />
-                  <span className="text-sm text-text-primary">{alert.title}</span>
+          {alerts.length === 0 ? (
+            <div className="px-6 py-8 text-center text-sm text-text-muted">
+              Keine aktuellen Alarme
+            </div>
+          ) : (
+            <div className="divide-y divide-border-default">
+              {alerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className="flex items-center justify-between px-6 py-3 hover:bg-hover/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className={cn(
+                      'h-4 w-4',
+                      alert.severity === 'critical' && 'text-accent-red',
+                      alert.severity === 'high' && 'text-accent-amber',
+                      alert.severity === 'medium' && 'text-accent-amber',
+                      alert.severity === 'low' && 'text-accent-cyan',
+                      alert.severity === 'info' && 'text-text-muted'
+                    )} />
+                    <span className="text-sm text-text-primary">{alert.title}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant={severityColors[alert.severity] || 'default'}>
+                      {alert.severity}
+                    </Badge>
+                    <span className="text-xs text-text-muted">{alert.time}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant={severityColors[alert.severity]}>
-                    {alert.severity}
-                  </Badge>
-                  <span className="text-xs text-text-muted">{alert.time}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -159,7 +223,13 @@ export default function DashboardPage() {
           </Button>
         </CardHeader>
         <CardContent>
-          <ActivityFeed items={mockActivity} maxItems={10} />
+          {activity.length === 0 ? (
+            <div className="py-8 text-center text-sm text-text-muted">
+              Keine Aktivitäten vorhanden
+            </div>
+          ) : (
+            <ActivityFeed items={activity} maxItems={10} />
+          )}
         </CardContent>
       </Card>
     </div>

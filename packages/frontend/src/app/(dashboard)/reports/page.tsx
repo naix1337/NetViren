@@ -17,14 +17,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { FileText, Download, Plus, RefreshCw, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { formatBytes } from '@/lib/utils';
 
-const mockReports = [
-  { id: '1', title: 'Daily Security Report', type: 'daily' as const, period: '2026-07-27 - 2026-07-28', status: 'completed' as const, fileSize: 245760, createdAt: '2026-07-28T06:00:00' },
-  { id: '2', title: 'Weekly Network Analysis', type: 'manual' as const, period: '2026-07-21 - 2026-07-28', status: 'completed' as const, fileSize: 524288, createdAt: '2026-07-28T08:00:00' },
-  { id: '3', title: 'Vulnerability Assessment', type: 'manual' as const, period: '2026-07-25 - 2026-07-28', status: 'completed' as const, fileSize: 1048576, createdAt: '2026-07-28T10:00:00' },
-  { id: '4', title: 'Agent Health Report', type: 'daily' as const, period: '2026-07-27 - 2026-07-28', status: 'generating' as const, fileSize: null, createdAt: '2026-07-28T14:00:00' },
-  { id: '5', title: 'Compliance Scan Report', type: 'manual' as const, period: '2026-07-20 - 2026-07-27', status: 'failed' as const, fileSize: null, createdAt: '2026-07-27T18:00:00' },
-];
-
 const typeColors = {
   daily: 'info' as const,
   manual: 'violet' as const,
@@ -42,7 +34,25 @@ const statusIcons: Record<string, React.ReactNode> = {
 
 export default function ReportsPage() {
   const t = useTranslations();
-  const [loading] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [data, setData] = React.useState<any[]>([]);
+  const [error, setError] = React.useState(false);
+
+  React.useEffect(() => {
+    fetch('/api/reports')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch');
+        return res.json();
+      })
+      .then((json) => {
+        setData(json.reports || []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
+  }, []);
 
   if (loading) {
     return (
@@ -53,11 +63,19 @@ export default function ReportsPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-text-muted">Failed to load reports. Please try again.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-text-secondary">{mockReports.length} reports</p>
+        <p className="text-sm text-text-secondary">{data.length} reports</p>
         <div className="flex gap-2">
           <Button variant="default" size="sm">
             <Plus className="h-4 w-4 mr-1" />
@@ -91,7 +109,7 @@ export default function ReportsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockReports.length === 0 ? (
+              {data.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-text-muted py-8">
                     <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -99,11 +117,11 @@ export default function ReportsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                mockReports.map((report) => (
+                data.map((report) => (
                   <TableRow key={report.id}>
                     <TableCell className="text-text-primary font-medium">{report.title}</TableCell>
                     <TableCell>
-                      <Badge variant={typeColors[report.type]}>{report.type}</Badge>
+                      <Badge variant={typeColors[report.type as keyof typeof typeColors]}>{report.type}</Badge>
                     </TableCell>
                     <TableCell className="text-xs text-text-secondary">{report.period}</TableCell>
                     <TableCell>
@@ -115,9 +133,11 @@ export default function ReportsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-text-secondary">
-                      {report.fileSize ? formatBytes(report.fileSize) : '-'}
+                      {report.file_size ? formatBytes(report.file_size) : '-'}
                     </TableCell>
-                    <TableCell className="text-xs text-text-muted">{report.createdAt}</TableCell>
+                    <TableCell className="text-xs text-text-muted">
+                      {report.created_at ? new Date(report.created_at + 'Z').toLocaleString() : '-'}
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
