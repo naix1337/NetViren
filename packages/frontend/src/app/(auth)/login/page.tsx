@@ -3,12 +3,13 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
-import { signIn } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Shield, Eye, EyeOff, Loader2 } from 'lucide-react';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export default function LoginPage() {
   const t = useTranslations();
@@ -25,17 +26,21 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const result = await signIn('credentials', {
-        username,
-        password,
-        redirect: false,
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
       });
 
-      if (result?.error) {
+      if (!res.ok) {
         setError(t('auth.error_invalid'));
-      } else {
-        router.push('/');
+        return;
       }
+
+      const data = await res.json();
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      router.push('/');
     } catch {
       setError(t('auth.error_invalid'));
     } finally {
@@ -128,7 +133,7 @@ export default function LoginPage() {
               type="button"
               variant="secondary"
               className="w-full"
-              onClick={() => signIn('google')}
+              onClick={() => window.open(`${API_URL}/api/auth/google`, '_self')}
               disabled={isLoading}
             >
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -156,7 +161,7 @@ export default function LoginPage() {
               type="button"
               variant="secondary"
               className="w-full"
-              onClick={() => signIn('github')}
+              onClick={() => window.open(`${API_URL}/api/auth/github`, '_self')}
               disabled={isLoading}
             >
               <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
