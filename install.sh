@@ -164,9 +164,10 @@ else
   # Automatisch: Zufallspasswort generieren + in Datei speichern
   ADMIN_USER="admin"
   ADMIN_PASS=$(tr -dc 'A-Za-z0-9' </dev/urandom 2>/dev/null | head -c 12 || echo "netviren$(date +%s)")
+  mkdir -p /etc/netviren 2>/dev/null || true
   echo "$ADMIN_PASS" > /etc/netviren/admin-password 2>/dev/null || true
   chmod 600 /etc/netviren/admin-password 2>/dev/null || true
-  echo -e "${CY}  Admin-Passwort gespeichert in: /etc/netviren/admin-password${NC}"
+  echo -e "${CYAN}  Admin-Passwort in /etc/netviren/admin-password${NC}"
 fi
 
 export ADMIN_PASS ADMIN_USER ADMIN_DB_DIR="${DB_DIR}"
