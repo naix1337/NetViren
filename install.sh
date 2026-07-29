@@ -313,9 +313,41 @@ systemctl start netviren-api netviren-frontend netviren-scanner netviren-packet-
 sleep 3
 
 # ──────────────────────────────────────────────
-# Done
+# Login-Datei
 # ──────────────────────────────────────────────
 PUBLIC_IP=${PUBLIC_IP:-$(curl -s https://api.ipify.org 2>/dev/null || echo "localhost")}
+mkdir -p /etc/netviren
+cat > /etc/netviren/login.txt << LOGIN
+═══════════════════════════════════════════
+  NetViren - Login Credentials
+  Erstellt: $(date)
+═══════════════════════════════════════════
+
+  Dashboard:   http://${PUBLIC_IP}:3001
+  Benutzer:    ${ADMIN_USER}
+  Passwort:    ${ADMIN_PASS}
+
+  Services:
+    netviren-api            Port 4000
+    netviren-frontend       Port 3001
+    netviren-scanner        (Python Worker)
+    netviren-packet-capture (Python Worker)
+
+  Logs:
+    journalctl -u netviren-api -f
+    journalctl -u netviren-frontend -f
+
+  Container:
+    pct enter ${CT_ID:-<ID>}
+
+═══════════════════════════════════════════
+LOGIN
+chmod 600 /etc/netviren/login.txt
+log "Login-Datei: /etc/netviren/login.txt"
+
+# ──────────────────────────────────────────────
+# Done
+# ──────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}══════════════════════════════════════════════${NC}"
 echo -e "${GREEN}  NetViren installation complete!${NC}"

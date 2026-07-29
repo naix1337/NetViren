@@ -226,8 +226,12 @@ else
   warn "Installation fehlgeschlagen — tail -50 $LOG"
 fi
 
-# ───── 5. INFO ─────
+# ───── 5. LOGIN-DATEI ─────
 CT_IP_ADDR=$(pct exec "$CT_ID" -- hostname -I 2>/dev/null | awk '{print $1}')
+# Login-Datei aus Container auf Proxmox Host kopieren
+pct exec "$CT_ID" -- cat /etc/netviren/login.txt 2>/dev/null > /etc/netviren-login-container-${CT_ID}.txt 2>/dev/null || true
+chmod 600 /etc/netviren-login-container-${CT_ID}.txt 2>/dev/null || true
+step "Login: /etc/netviren-login-container-${CT_ID}.txt"
 
 echo ""
 echo " ╔═══════════════════════════════════════════════╗"
