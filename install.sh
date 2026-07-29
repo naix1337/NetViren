@@ -36,7 +36,10 @@ log "Starting NetViren installation..."
 # ──────────────────────────────────────────────
 log "Installing system dependencies..."
 apt-get update -qq
-apt-get install -y -qq build-essential libpcap-dev nmap arp-scan python3 python3-pip curl wget git openssl
+apt-get install -y -qq build-essential libpcap-dev nmap arp-scan python3 python3-pip curl wget git openssl locales
+# Fix locale warnings
+locale-gen en_US.UTF-8 2>/dev/null || true
+export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 ok "System dependencies installed"
 
 # ──────────────────────────────────────────────
@@ -103,15 +106,15 @@ fi
 # ──────────────────────────────────────────────
 log "Installing npm dependencies..."
 cd "$NETVIREN_DIR"
-npm ci 2>&1 | tail -5
+npm install 2>&1 | tail -5
 
 log "Building API..."
 cd "$NETVIREN_DIR/packages/api"
-npx tsc 2>&1 | tail -3
+node "$NETVIREN_DIR/node_modules/.bin/tsc" 2>&1 | tail -5
 
 log "Building Frontend..."
 cd "$NETVIREN_DIR/packages/frontend"
-npx next build 2>&1 | tail -10
+node "$NETVIREN_DIR/node_modules/next/dist/bin/next" build 2>&1 | tail -10
 
 # Static files in standalone
 if [[ -d ".next/static" && -d ".next/standalone/packages/frontend/.next" ]]; then
