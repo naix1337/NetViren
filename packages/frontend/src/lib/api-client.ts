@@ -1,8 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
 async function fetchApi(path: string, options?: RequestInit) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(path, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -31,7 +29,7 @@ export const api = {
   delete: (path: string) => fetchApi(path, { method: 'DELETE' }),
   upload: async (path: string, formData: FormData) => {
     const token = localStorage.getItem('token');
-    const res = await fetch(`${API_BASE}${path}`, {
+    const res = await fetch(path, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,

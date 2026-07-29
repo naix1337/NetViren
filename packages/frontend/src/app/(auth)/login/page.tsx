@@ -9,8 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { Shield, Eye, EyeOff, Loader2 } from 'lucide-react';
 
-const API_URL = '';
-
 export default function LoginPage() {
   const t = useTranslations();
   const router = useRouter();
