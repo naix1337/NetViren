@@ -9,10 +9,13 @@ export async function POST(req: NextRequest) {
 
     const response = NextResponse.json({ ok: true });
 
-    // Set httpOnly cookie with JWT - not spoofable from client-side JS
+    // Secure flag only when HTTPS (Caddy terminates TLS externally)
+    const isSecure = req.headers.get('x-forwarded-proto') === 'https'
+      || req.nextUrl.protocol === 'https:';
+
     response.cookies.set('netviren_token', token, {
       httpOnly: true,
-      secure: true, // HTTPS is terminated by Caddy
+      secure: isSecure,
       sameSite: 'lax',
       path: '/',
       maxAge: 7 * 24 * 60 * 60, // 7 days
