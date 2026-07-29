@@ -1,243 +1,250 @@
-# NetViren
+# 🛡️ NetViren — Network Security Platform
 
-A comprehensive Network Security Platform for network discovery, threat detection, packet analysis, and security monitoring.
-
-![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
-![Node.js](https://img.shields.io/badge/Node.js-22.x-339933?logo=node.js)
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)
+![Node](https://img.shields.io/badge/Node.js-22-339933?logo=node.js)
 ![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=next.js)
 ![Fastify](https://img.shields.io/badge/Fastify-5-000000?logo=fastify)
-![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
+![Python](https://img.shields.io/badge/Python-3-3776AB?logo=python)
+![SQLite](https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite)
+![License: MIT](https://img.shields.io/badge/License-MIT-blue)
+
+> **Eine professionelle, selbstgehostete Network Security Platform für Netzwerküberwachung, Bedrohungserkennung, Paketanalyse und Sicherheits-Monitoring.**  
+> Entwickelt für den Betrieb in Proxmox LXC Containern (Debian/Ubuntu) — nativ, ohne Docker.
 
 ---
 
-## Architecture Overview
+## ✨ Features
+
+| Feature | Beschreibung |
+|---------|-------------|
+| **🔍 Netzwerk-Discovery** | Automatische Geräteerkennung via ARP, ICMP und Nmap |
+| **🔌 Port-Scanning** | TCP + UDP Port-Scans mit konfigurierbaren Ranges |
+| **💻 OS-Erkennung** | Betriebssystem-Fingerprinting und Service-Detection |
+| **🤖 Agent-System** | Native Agents für Windows & Linux (SHA256-Scans, Packet Captures) |
+| **📦 Paketanalyse** | Deep Packet Inspection, DNS-Analyse, Beaconing-Erkennung |
+| **🦠 VirusTotal** | Automatischer Hash/URL/Domain/IP-Abgleich |
+| **📊 PDF-Reports** | Tägliche automatische + manuelle Berichte |
+| **🔔 Discord-Alerts** | Echtzeit-Benachrichtigungen mit schönen Embeds |
+| **👥 Multi-User** | Rollenbasiert (Admin, Analyst, Viewer) mit OAuth (Google, GitHub) |
+| **🌐 i18n** | Deutsch & Englisch (vollständig übersetzt) |
+| **🎨 Dark Cyber Design** | Hochwertiges, professionelles Dark-UI mit Neon-Akzenten |
+
+---
+
+## 🏗️ Architektur
 
 ```
-                          NetViren System Architecture
-
-                    ┌─────────────────────────────────────────────┐
-                    │              Proxmox LXC / VM               │
-                    │         (Debian 12 / Ubuntu 24.04)          │
-                    │                                             │
-                    │  ┌──────────┐     ┌──────────────────────┐ │
-                    │  │  Nginx   │     │    systemd Services   │ │
-                    │  │  (Proxy) │     │  ┌─────────────────┐ │ │
-                    │  └────┬─────┘     │  │ netviren-*.service│ │ │
-                    │       │           │  │ (5 services)     │ │ │
-                    │       │           │  └─────────────────┘ │ │
-                    │       ▼           └──────────────────────┘ │
-                    │  ┌──────────────────────────────────┐      │
-                    │  │       Fastify API (:4000)         │      │
-                    │  │  REST + WebSocket + JWT Auth      │      │
-                    │  └──────┬──────────┬─────────────────┘      │
-                    │         │          │                        │
-                    │  ┌──────▼──┐  ┌────▼─────────────┐         │
-                    │  │ Next.js  │  │ Python Scanner   │         │
-                    │  │ (:3000)  │  │ Worker (polls DB)│         │
-                    │  │ Auth.js  │  └──────────────────┘         │
-                    │  └──────────┘                               │
-                    │         │          ┌──────────────────┐     │
-                    │         └──────────┤    SQLite DB      │     │
-                    │                    │  (shared WAL)     │     │
-                    │                    └────────┬─────────┘     │
-                    │                             │               │
-                    │  ┌─────────────────┐  ┌─────▼──────────┐   │
-                    │  │ Agent Handler   │  │ Packet Capture  │   │
-                    │  │ Fastify (:4001) │  │ Python (scapy)  │   │
-                    │  └──────┬──────────┘  └────────────────┘   │
-                    │         │                                   │
-                    │  ┌──────▼───────┐  ┌──────────────────┐    │
-                    │  │ Linux Agent  │  │ Windows Agent    │    │
-                    │  │ (Python)     │  │ (Python + Npcap) │    │
-                    │  └──────────────┘  └──────────────────┘    │
-                    └─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                   Proxmox LXC Container                   │
+│                                                          │
+│  ┌──────────┐    ┌────────────────┐    ┌──────────────┐  │
+│  │ Next.js  │    │  Fastify API   │    │   Python     │  │
+│  │ Frontend │◄──►│  (REST + WS)   │◄──►│   Scanner    │  │
+│  │  :3001   │    │    :4000       │    │   Worker     │  │
+│  └──────────┘    └───────┬────────┘    └──────┬───────┘  │
+│                          │                    │          │
+│                   ┌──────▼────────────────────▼──┐       │
+│                   │         SQLite Database       │       │
+│                   │   /var/lib/netviren/db/      │       │
+│                   └──────────────────────────────┘       │
+│                                                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐  │
+│  │ Packet-Cap   │  │ Agent-Handler│  │   Discord      │  │
+│  │ (Python)     │  │ (Fastify)    │  │   Webhook      │  │
+│  └──────────────┘  └──────┬───────┘  └────────────────┘  │
+│                           │                              │
+│                   ┌───────┴───────┐                      │
+│                   │ Linux/Windows │                      │
+│                   │ Agents        │                      │
+│                   └───────────────┘                      │
+└──────────────────────────────────────────────────────────┘
 ```
 
-## Key Features
+**5 systemd-Services:**
+| Service | Technologie | Beschreibung |
+|---------|-------------|-------------|
+| `netviren-api` | Node.js (Fastify) | REST API + WebSocket |
+| `netviren-frontend` | Next.js 15 | SSR Frontend |
+| `netviren-scanner` | Python | ARP/Nmap Scans |
+| `netviren-packet-capture` | Python | Packet Capture |
+| `netviren-agent-handler` | Node.js | Agent Communication |
 
-- **Network Discovery** — ARP scanning, TCP/UDP port scanning, OS fingerprinting, and service detection via Nmap
-- **Agent System** — Lightweight Python agents for Windows and Linux that monitor files, processes, and network connections
-- **Packet Analysis** — PCAP capture, DNS query extraction, connection tracking, and beaconing detection
-- **VirusTotal Integration** — Hash, URL, domain, and IP lookups with intelligent caching and rate limiting
-- **Reporting** — Automated daily PDF reports and on-demand manual reports via Puppeteer
-- **Alerting** — Severity-based alerts with Discord webhook integration
-- **Real-time Dashboard** — Live activity feed via WebSocket with live threat monitoring
-- **Role-Based Access** — Admin, Analyst, and Viewer roles with fine-grained permission control
-- **Multi-Provider Auth** — Local credentials, Google OAuth, and GitHub OAuth
+---
 
-## Tech Stack
+## 🚀 Quick Start
 
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | Next.js 15 (App Router), TypeScript |
-| **UI** | Tailwind CSS, shadcn/ui, Radix UI, Framer Motion |
-| **Charts** | Recharts |
-| **API** | Fastify 5, TypeScript |
-| **Auth** | Auth.js (NextAuth v5) — Credentials, Google, GitHub |
-| **Database** | SQLite via better-sqlite3 (Node) + sqlite3 (Python) |
-| **Scanner** | Python 3, scapy, python-nmap |
-| **Packet Capture** | Python, scapy, pyshark |
-| **PDF Generation** | Puppeteer |
-| **Scheduling** | systemd timers + node-cron |
-| **i18n** | next-intl (English + German) |
-| **Container** | Proxmox LXC (Debian 12 / Ubuntu 24.04) |
-
-## Quick Start
-
-### Prerequisites
-
-- Node.js 22.x+
-- Python 3.11+
-- Nmap (`apt install nmap`)
-- libpcap-dev (`apt install libpcap-dev`)
+### Voraussetzungen
+- **Server:** Proxmox LXC (Debian 12 oder Ubuntu 24.04+)
+- **Rechte:** `root`-Zugriff für Installation
+- **Netzwerk:** Zugriff auf das zu überwachende lokale Netzwerk
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/netviren.git
-cd netviren
+# 1. Projekt auf den Server kopieren
+scp -r netzwerk-viren-scanner root@dein-server:/opt/netviren
 
-# Install Node.js dependencies
-npm install
+# 2. Installationsskript ausführen
+cd /opt/netviren
+chmod +x install.sh
+./install.sh
 
-# Install Python dependencies
-pip install -r workers/scanner/requirements.txt
-pip install -r workers/packet-capture/requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your settings (database path, auth secret, API keys, etc.)
-
-# Build the project
-npm run build
-
-# Run database migrations (automatic on first API start)
-
-# Start development servers
-npm run dev:api       # Fastify API on :4000
-npm run dev:frontend  # Next.js frontend on :3000
+# 3. Nach der Installation:
+# API:      http://dein-server:4000
+# Frontend: http://dein-server:3001
+# Login:    admin / (vom Script vergebenes Passwort)
 ```
 
-### Production Deployment
+### Alternative: Manuelle Installation
 
 ```bash
-# Build everything
+# System-Dependencies
+apt-get update
+apt-get install -y build-essential libpcap-dev nmap arp-scan python3 python3-pip nginx curl
+
+# Node.js 22
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+apt-get install -y nodejs
+
+# Projekt setup
+cd /opt/netviren
+npm install
 npm run build
 
-# Start services
-npm run start:api
-npm run start:frontend
+# Python-Dependencies
+pip3 install scapy python-nmap
 
-# Or use systemd services (see deploy/systemd/)
-sudo cp deploy/systemd/*.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now netviren-api netviren-frontend
+# API starten
+cd packages/api && node dist/index.js &
+
+# Frontend starten
+cd packages/frontend && PORT=3001 node .next/standalone/packages/frontend/server.js &
+
+# Scanner starten
+cd workers/scanner && python3 main.py &
 ```
 
-## Directory Structure
+---
+
+## 📖 Dokumentation
+
+| Dokument | Beschreibung |
+|----------|-------------|
+| [Benutzerhandbuch](docs/user-guide.md) | Vollständige Anleitung mit allen Features |
+| [Installation](docs/installation.md) | Detaillierte Installationsanleitung |
+| [Architektur](docs/architecture.md) | Systemarchitektur und Datenflüsse |
+| [API-Referenz](docs/api.md) | Vollständige REST API Dokumentation |
+| [Agent-Deployment](docs/agent-deployment.md) | Agents auf Windows/Linux installieren |
+
+---
+
+## 🖥️ Screenshots
+
+> Screenshots folgen in Kürze.
+
+| Login | Dashboard | Geräte |
+|-------|-----------|--------|
+| Dark Cyber Design mit Neon-Akzenten | Threat Score + Live Activity | Device List + Port Scanner |
+
+---
+
+## 🛠️ Tech Stack
+
+**Frontend:**
+- [Next.js 15](https://nextjs.org/) (App Router) + TypeScript
+- [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) + Radix UI
+- [Framer Motion](https://www.framer.com/motion/) — Micro-Interactions
+- [Recharts](https://recharts.org/) — Dashboard-Charts
+- [next-intl](https://next-intl-docs.vercel.app/) — i18n (DE/EN)
+- Dark Mode only mit Cyber-Design
+
+**Backend:**
+- [Fastify](https://fastify.dev/) v5 + TypeScript (REST API)
+- [Auth.js](https://authjs.dev/) v5 (NextAuth) — Credentials + Google + GitHub
+- [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) — SQLite
+- [jsonwebtoken](https://github.com/auth0/node-jsonwebtoken) — JWT
+- [Puppeteer](https://pptr.dev/) — PDF-Reports
+
+**Workers:**
+- [scapy](https://scapy.net/) — ARP-Scans, Packet Capture
+- [python-nmap](https://pypi.org/project/python-nmap/) — Port-Scans, OS Detection
+- [psutil](https://psutil.readthedocs.io/) — Agent-Prozess-Monitoring
+
+---
+
+## 👨‍💻 Entwicklung
+
+```bash
+# Repository klonen
+git clone https://github.com/dein-user/netviren.git
+cd netviren
+
+# Dependencies installieren
+npm install
+
+# Entwicklungsserver starten
+npm run dev:api        # API :4000
+npm run dev:frontend   # Frontend :3000
+
+# Bauen
+npm run build
+
+# Tests
+npm test
+```
+
+### Projektstruktur
 
 ```
 netviren/
-├── package.json                 # Root workspace config (npm workspaces)
-├── .env.example                 # Environment variable template
-├── README.md
-│
 ├── packages/
-│   ├── api/                     # Fastify API server
+│   ├── api/              # Fastify API Server
 │   │   └── src/
-│   │       ├── app.ts           # App bootstrap (plugins, routes, WS)
-│   │       ├── index.ts         # Entry point
-│   │       ├── config/          # Environment validation (Zod)
-│   │       ├── db/              # SQLite connection + migrations
-│   │       ├── modules/         # Route modules by feature
-│   │       │   ├── auth/        # Login, profile, session
-│   │       │   ├── devices/     # Network devices & ports
-│   │       │   ├── scans/       # Scan job management
-│   │       │   ├── agents/      # Agent registration & data
-│   │       │   ├── packets/     # Packet captures & analysis
-│   │       │   ├── vt/          # VirusTotal lookups
-│   │       │   ├── alerts/      # Alert management
-│   │       │   ├── reports/     # Report generation
-│   │       │   ├── settings/    # System settings
-│   │       │   └── users/       # User management
-│   │       ├── middleware/      # Auth middleware, RBAC
-│   │       ├── lib/            # JWT signing, utilities
-│   │       └── websocket/      # WebSocket event broadcasting
-│   │
-│   └── frontend/               # Next.js 15 application
+│   │       ├── modules/  # 10 Feature-Module
+│   │       ├── db/       # SQLite + Migrationen
+│   │       └── middleware/# Auth, Logging
+│   └── frontend/         # Next.js 15 App
 │       └── src/
-│           ├── app/            # App Router pages
-│           │   ├── (auth)/     # Login page
-│           │   └── (dashboard)/# Dashboard, devices, agents, etc.
-│           ├── components/     # shadcn/ui + custom components
-│           ├── lib/            # API client, hooks, utilities
-│           ├── types/          # TypeScript type definitions
-│           └── styles/         # Global CSS, Tailwind
-│
+│           ├── app/      # 11 Seiten (App Router)
+│           ├── components/# UI + Layout + Shared
+│           └── i18n/     # Deutsch/Englisch
 ├── workers/
-│   ├── scanner/                # Python scanner worker
-│   │   ├── main.py             # Job loop, scan orchestration
-│   │   ├── arp_scanner.py      # ARP network discovery (scapy)
-│   │   ├── port_scanner.py     # TCP/UDP port scanning (nmap)
-│   │   ├── os_detection.py     # OS fingerprinting (nmap)
-│   │   └── db.py               # SQLite connection
-│   │
-│   └── packet-capture/         # Python packet capture worker
-│       ├── db.py               # SQLite connection
-│       └── requirements.txt
-│
+│   ├── scanner/          # Python Scanner
+│   └── packet-capture/   # Packet Capture
 ├── agents/
-│   ├── linux/                  # Linux agent (Python + systemd)
-│   │   ├── agent.py            # Agent core (file scan, processes, heartbeat)
-│   │   ├── install.sh          # One-line installer
-│   │   └── requirements.txt
-│   │
-│   └── windows/                # Windows agent (Python + Npcap)
-│       ├── agent.py            # Agent core (WMI, processes, connections)
-│       ├── agent_service.py    # Windows Service wrapper
-│       ├── installer.nsi       # NSIS installer script
-│       └── requirements.txt
-│
+│   ├── linux/            # Linux Native Agent
+│   └── windows/          # Windows Agent + NSIS
 ├── deploy/
-│   ├── systemd/                # systemd service definitions
-│   │   ├── netviren-api.service
-│   │   ├── netviren-frontend.service
-│   │   ├── netviren-scanner.service
-│   │   ├── netviren-packet-capture.service
-│   │   └── netviren-agent-handler.service
-│   └── nginx/                  # Nginx reverse proxy config
-│
-└── docs/
-    ├── architecture.md         # Extended architecture documentation
-    └── api.md                  # Full API reference
+│   ├── systemd/          # 5 Service-Dateien
+│   └── nginx/            # Reverse Proxy Config
+└── docs/                 # Dokumentation
 ```
 
-## Screenshots
+---
 
-*(Screenshots to be added)*
+## 🔒 Sicherheit
 
-## License
+- **Passwort-Hashing:** bcrypt (12 Runden)
+- **JWT:** 256-Bit Secrets, 7-Tage-Expiry
+- **API-Rate-Limiting:** 100 req/min pro IP
+- **RBAC:** Admin / Analyst / Viewer mit Middleware-Guards
+- **System-Capabilities:** CAP_NET_RAW + CAP_NET_ADMIN (nur für Scanner)
+- **Packet-Speicher:** 7-Tage-Retention mit automatischer Bereinigung
+- **Agent-Auth:** JWT + optionaler Public-Key-Challenge
+- **Path-Traversal-Schutz:** realpathSync-Validierung aller Dateipfade
+- **Dependencies:** Regelmäßige Security-Audits via `npm audit`
 
-MIT License
+---
 
-Copyright (c) 2026
+## 📄 Lizenz
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+MIT License — siehe [LICENSE](LICENSE) für Details.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+---
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+## 🙏 Danksagung
+
+- [shadcn/ui](https://ui.shadcn.com/) für die UI-Komponenten-Basis
+- [21st.dev](https://21st.dev/) für Design-Inspiration
+- [Linear.app](https://linear.app/) für das Design-Vorbild
+- [Vercel Dashboard](https://vercel.com/dashboard) für UX-Referenz
