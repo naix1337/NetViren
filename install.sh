@@ -9,7 +9,7 @@ set -euo pipefail
 #   bash <(curl -sSL https://github.com/naix1337/network-analyser/raw/master/install.sh)
 # ═══════════════════════════════════════════════
 
-REPO="https://github.com/naix1337/network-analyser.git"
+REPO="https://github.com/naix1337/networkvirusscanner.git"
 NETVIREN_DIR="/opt/netviren"
 DB_DIR="/var/lib/netviren/db"
 PACKET_DIR="/var/lib/netviren/packets"

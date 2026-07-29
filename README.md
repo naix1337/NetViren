@@ -18,7 +18,7 @@
 ### One-Liner Installation (frische Server)
 
 ```bash
-bash <(curl -sSL https://github.com/naix1337/network-analyser/raw/master/install.sh)
+bash <(curl -sSL https://github.com/naix1337/networkvirusscanner/raw/master/install.sh)
 ```
 
 Das Script installiert automatisch:
@@ -32,7 +32,7 @@ Das Script installiert automatisch:
 
 ```bash
 # Repository klonen
-git clone https://github.com/naix1337/network-analyser.git /opt/netviren
+git clone https://github.com/naix1337/networkvirusscanner.git /opt/netviren
 cd /opt/netviren
 
 # Installationsscript ausführen
