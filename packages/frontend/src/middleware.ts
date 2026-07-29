@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/_next', '/api/auth/login', '/favicon.ico'];
+const PUBLIC_PATHS = ['/login', '/_next', '/api/auth/login', '/api/auth/set-session', '/favicon.ico'];
 
 export default function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -11,9 +11,9 @@ export default function middleware(req: NextRequest) {
     return addSecurityHeaders(NextResponse.next());
   }
 
-  // Check session cookie (set after successful login)
-  const hasSession = req.cookies.has('netviren_session');
-  if (!hasSession && pathname.startsWith('/')) {
+  // Check httpOnly JWT cookie (set by server, not spoofable by JS)
+  const token = req.cookies.get('netviren_token')?.value;
+  if (!token && pathname.startsWith('/')) {
     return addSecurityHeaders(NextResponse.redirect(new URL('/login', req.url)));
   }
 
