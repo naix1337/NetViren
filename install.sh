@@ -147,21 +147,15 @@ while true; do
   break
 done
 
+export ADMIN_PASS ADMIN_USER ADMIN_DB_DIR="${DB_DIR}"
+
 node -e "
 const b=require('bcryptjs'), D=require('better-sqlite3'),
-d=new D('${DB_DIR}/netviren.db');
+d=new D(process.env.ADMIN_DB_DIR + '/netviren.db');
 const {randomBytes}=require('crypto'), id=randomBytes(16).toString('hex');
 const h=b.hashSync(process.env.ADMIN_PASS,12);
 d.prepare('INSERT OR REPLACE INTO users(id,username,password_hash,role,is_active) VALUES(?,?,?,?,?)')
  .run(id,process.env.ADMIN_USER,h,'admin',1);
-console.log('  ✓ Admin user created');
-" 2>/dev/null || node -e "
-const b=require('bcryptjs'),D=require('better-sqlite3'),
-d=new D('${DB_DIR}/netviren.db');
-const {randomBytes}=require('crypto'),id=randomBytes(16).toString('hex');
-const h=b.hashSync('${ADMIN_PASS}',12);
-d.prepare('INSERT OR REPLACE INTO users(id,username,password_hash,role,is_active) VALUES(?,?,?,?,?)')
- .run(id,'${ADMIN_USER}',h,'admin',1);
 console.log('  ✓ Admin user created');
 "
 ok "Admin user: ${ADMIN_USER}"
