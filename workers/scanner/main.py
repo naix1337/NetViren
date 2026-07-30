@@ -5,6 +5,7 @@ import time
 import logging
 import os
 import sys
+import threading
 from datetime import datetime
 from typing import List, Dict
 
@@ -29,7 +30,26 @@ def get_pending_scans(db) -> List[Dict]:
 def execute_scan(db, scan: Dict):
     scan_id = scan['id']
     scan_type = scan['scan_type']
-    target = scan.get('target') or '192.168.1.0/24'
+    target = scan.get('target') or ''
+    # Auto-detect local network if target is empty or "AUTO"
+    if not target or target == 'AUTO':
+        import subprocess
+        try:
+            result = subprocess.run(['ip', '-4', 'route', 'show', 'default'], capture_output=True, text=True, timeout=5)
+            parts = result.stdout.strip().split()
+            if len(parts) >= 3:
+                via_idx = parts.index('via')
+                if via_idx + 2 < len(parts):
+                    dev = parts[via_idx + 2]
+                    dev_result = subprocess.run(['ip', '-4', 'route', 'show', 'dev', dev], capture_output=True, text=True, timeout=5)
+                    for line in dev_result.stdout.strip().split('\n'):
+                        if '/' in line:
+                            target = line.split()[0]
+                            break
+        except Exception:
+            pass
+        if not target or target == 'AUTO':
+            target = '192.168.1.0/24'
     logger.info(f"Starting scan {scan_id}: type={scan_type}, target={target}")
 
     db.execute("UPDATE scans SET status = 'running' WHERE id = ?", (scan_id,))
@@ -150,6 +170,11 @@ def run_continuous():
 
 def main():
     logger.info("NetViren Scanner Worker starting...")
+
+    # Start continuous ARP monitoring in background thread
+    monitor = threading.Thread(target=run_continuous, daemon=True)
+    monitor.start()
+    logger.info("Continuous ARP monitoring started")
 
     # Main scan job loop
     while True:
