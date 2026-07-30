@@ -15,6 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { api } from '@/lib/api-client';
 import { Bell, CheckCheck, Filter, RefreshCw, AlertTriangle, Monitor, Scan, Bot } from 'lucide-react';
 
 const severityColors = {
@@ -41,13 +42,12 @@ export default function AlertsPage() {
   const [data, setData] = React.useState<any[]>([]);
   const [error, setError] = React.useState(false);
   const [filterSeverity, setFilterSeverity] = React.useState('all');
+  const [feedback, setFeedback] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  React.useEffect(() => {
-    fetch('/api/alerts')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch');
-        return res.json();
-      })
+  const fetchAlerts = React.useCallback(() => {
+    setLoading(true);
+    setError(false);
+    api.get('/api/alerts')
       .then((json) => {
         setData(json.alerts || []);
         setLoading(false);
@@ -57,6 +57,22 @@ export default function AlertsPage() {
         setLoading(false);
       });
   }, []);
+
+  React.useEffect(() => {
+    fetchAlerts();
+  }, [fetchAlerts]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.patch('/api/alerts/read-all', {});
+      setData((prev) => prev.map((a) => ({ ...a, is_read: true })));
+      setFeedback({ type: 'success', message: 'All alerts marked as read.' });
+      setTimeout(() => setFeedback(null), 3000);
+    } catch {
+      setFeedback({ type: 'error', message: 'Failed to mark all alerts as read.' });
+      setTimeout(() => setFeedback(null), 3000);
+    }
+  };
 
   const unreadCount = data.filter((a) => !a.is_read).length;
 
@@ -92,15 +108,26 @@ export default function AlertsPage() {
           )}
         </div>
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
             <CheckCheck className="h-4 w-4 mr-1" />
             {t('alerts.mark_all_read')}
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" onClick={fetchAlerts}>
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
       </div>
+
+      {/* Feedback */}
+      {feedback && (
+        <div className={`px-4 py-3 rounded-lg text-sm font-medium ${
+          feedback.type === 'success'
+            ? 'bg-accent-emerald/10 text-accent-emerald border border-accent-emerald/20'
+            : 'bg-accent-red/10 text-accent-red border border-accent-red/20'
+        }`}>
+          {feedback.message}
+        </div>
+      )}
 
       {/* Filter */}
       <div className="flex items-center gap-3">
@@ -117,9 +144,9 @@ export default function AlertsPage() {
           ]}
           className="w-44"
         />
-        <Button variant="secondary" size="sm">
+        <Button variant="secondary" size="sm" onClick={() => setData((prev) => [...prev].reverse())}>
           <Filter className="h-4 w-4 mr-1" />
-          {t('alerts.filter_severity')}
+          Sort
         </Button>
       </div>
 

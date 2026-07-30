@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/table';
 import { StatusPulse } from '@/components/shared/StatusPulse';
 import { Skeleton } from '@/components/ui/skeleton';
+import { api } from '@/lib/api-client';
 import { Search, Filter, Scan, RefreshCw, Map, LayoutList } from 'lucide-react';
 
 const threatColor = (score: number) => {
@@ -32,13 +33,14 @@ export default function DevicesPage() {
   const [error, setError] = React.useState(false);
   const [viewMode, setViewMode] = React.useState<'table' | 'map'>('table');
   const [search, setSearch] = React.useState('');
+  const [filterStatus, setFilterStatus] = React.useState<string>('all');
+  const [scanning, setScanning] = React.useState(false);
+  const [scanMessage, setScanMessage] = React.useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  React.useEffect(() => {
-    fetch('/api/devices')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch');
-        return res.json();
-      })
+  const fetchDevices = React.useCallback(() => {
+    setLoading(true);
+    setError(false);
+    api.get('/api/devices')
       .then((json) => {
         setData(json.devices || []);
         setLoading(false);
@@ -49,7 +51,40 @@ export default function DevicesPage() {
       });
   }, []);
 
-  const filtered = data.filter(
+  React.useEffect(() => {
+    fetchDevices();
+  }, [fetchDevices]);
+
+  const handleStartScan = async () => {
+    setScanMessage(null);
+    setScanning(true);
+    try {
+      await api.post('/api/scans', { scanType: 'arp', target: 'AUTO' });
+      setScanMessage({ type: 'success', text: 'Scan started successfully.' });
+    } catch (err: any) {
+      setScanMessage({ type: 'error', text: err.message || 'Failed to start scan' });
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleViewToggle = () => {
+    if (viewMode === 'table') {
+      setViewMode('map');
+      alert('Map view coming soon');
+    } else {
+      setViewMode('table');
+    }
+  };
+
+  const statusFiltered = filterStatus === 'all'
+    ? data
+    : data.filter((d) => {
+        const status = d.is_online ? 'online' : 'offline';
+        return status === filterStatus;
+      });
+
+  const filtered = statusFiltered.filter(
     (d) =>
       (d.ip_address || d.ip || '').includes(search) ||
       (d.hostname || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -87,6 +122,8 @@ export default function DevicesPage() {
           />
         </div>
         <Select
+          value={filterStatus}
+          onChange={(e: any) => setFilterStatus(e.target.value)}
           options={[
             { value: 'all', label: 'All Status' },
             { value: 'online', label: 'Online' },
@@ -94,21 +131,38 @@ export default function DevicesPage() {
           ]}
           className="w-36"
         />
-        <Button variant="secondary" size="sm">
+        <Button variant="secondary" size="sm" onClick={() => {
+          const statuses: string[] = [];
+          if (filterStatus === 'all' || filterStatus === 'online') statuses.push('online');
+          if (filterStatus === 'all' || filterStatus === 'offline') statuses.push('offline');
+          setFilterStatus(filterStatus === 'all' ? 'online' : filterStatus === 'online' ? 'offline' : 'all');
+        }}>
           <Filter className="h-4 w-4 mr-1" />
           Filter
         </Button>
-        <Button variant="default" size="sm" className="ml-auto">
+        <Button variant="default" size="sm" className="ml-auto" onClick={handleStartScan} disabled={scanning}>
           <Scan className="h-4 w-4 mr-1" />
-          {t('devices.start_scan')}
+          {scanning ? 'Scanning...' : t('devices.start_scan')}
         </Button>
-        <Button variant="ghost" size="icon" onClick={() => setViewMode(viewMode === 'table' ? 'map' : 'table')}>
+        <Button variant="ghost" size="icon" onClick={handleViewToggle}>
           {viewMode === 'table' ? <Map className="h-4 w-4" /> : <LayoutList className="h-4 w-4" />}
         </Button>
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" onClick={fetchDevices}>
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* Scan message */}
+      {scanMessage && (
+        <div className={`px-4 py-3 rounded-lg text-sm font-medium flex items-center justify-between ${
+          scanMessage.type === 'success'
+            ? 'bg-accent-emerald/10 text-accent-emerald border border-accent-emerald/20'
+            : 'bg-accent-red/10 text-accent-red border border-accent-red/20'
+        }`}>
+          <span>{scanMessage.text}</span>
+          <button onClick={() => setScanMessage(null)} className="text-xs underline opacity-70 hover:opacity-100 ml-4">Dismiss</button>
+        </div>
+      )}
 
       {/* Device Table */}
       <Card>

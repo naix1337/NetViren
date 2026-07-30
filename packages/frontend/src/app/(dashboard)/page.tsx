@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { ThreatGauge } from '@/components/shared/ThreatGauge';
 import { StatCard } from '@/components/shared/StatCard';
@@ -9,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { api } from '@/lib/api-client';
 import {
   Monitor,
   Scan,
@@ -52,6 +54,7 @@ interface DashboardActivity {
 
 export default function DashboardPage() {
   const t = useTranslations();
+  const router = useRouter();
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(false);
   const [stats, setStats] = React.useState<DashboardStats>({
@@ -61,11 +64,13 @@ export default function DashboardPage() {
   const [alerts, setAlerts] = React.useState<DashboardAlert[]>([]);
   const [activity, setActivity] = React.useState<DashboardActivity[]>([]);
 
-  React.useEffect(() => {
+  const fetchDashboardData = React.useCallback(() => {
+    setLoading(true);
+    setError(false);
     Promise.all([
-      fetch('/api/devices').then(r => r.json()).catch(() => ({ devices: [] })),
-      fetch('/api/scans').then(r => r.json()).catch(() => ({ scans: [] })),
-      fetch('/api/alerts').then(r => r.json()).catch(() => ({ alerts: [] })),
+      api.get('/api/devices').catch(() => ({ devices: [] })),
+      api.get('/api/scans').catch(() => ({ scans: [] })),
+      api.get('/api/alerts').catch(() => ({ alerts: [] })),
     ])
       .then(([devicesData, scansData, alertsData]) => {
         const deviceList = devicesData.devices || [];
@@ -110,6 +115,10 @@ export default function DashboardPage() {
         setLoading(false);
       });
   }, []);
+
+  React.useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   if (loading) {
     return (
@@ -170,7 +179,7 @@ export default function DashboardPage() {
             <Bell className="h-4 w-4 text-accent-cyan" />
             {t('dashboard.recent_alerts')}
           </CardTitle>
-          <Button variant="ghost" size="sm" className="text-text-muted gap-1">
+          <Button variant="ghost" size="sm" className="text-text-muted gap-1" onClick={() => router.push('/alerts')}>
             View all
             <ArrowRight className="h-3 w-3" />
           </Button>
@@ -218,7 +227,7 @@ export default function DashboardPage() {
             <Shield className="h-4 w-4 text-accent-cyan" />
             {t('dashboard.live_activity')}
           </CardTitle>
-          <Button variant="ghost" size="icon" className="text-text-muted">
+          <Button variant="ghost" size="icon" className="text-text-muted" onClick={fetchDashboardData}>
             <RotateCcw className="h-4 w-4" />
           </Button>
         </CardHeader>

@@ -1,26 +1,27 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusPulse } from '@/components/shared/StatusPulse';
 import { Skeleton } from '@/components/ui/skeleton';
+import { api } from '@/lib/api-client';
 import { Bot, FileSearch, Activity, Network, Plus, RefreshCw } from 'lucide-react';
 
 export default function AgentsPage() {
   const t = useTranslations();
+  const router = useRouter();
   const [loading, setLoading] = React.useState(true);
   const [data, setData] = React.useState<any[]>([]);
   const [error, setError] = React.useState(false);
 
-  React.useEffect(() => {
-    fetch('/api/agents')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch');
-        return res.json();
-      })
+  const fetchAgents = React.useCallback(() => {
+    setLoading(true);
+    setError(false);
+    api.get('/api/agents')
       .then((json) => {
         setData(json.agents || []);
         setLoading(false);
@@ -30,6 +31,15 @@ export default function AgentsPage() {
         setLoading(false);
       });
   }, []);
+
+  React.useEffect(() => {
+    fetchAgents();
+  }, [fetchAgents]);
+
+  const handleDeployAgent = () => {
+    router.push('/agents/deploy');
+    alert('Agent deployment page will be available soon');
+  };
 
   if (loading) {
     return (
@@ -55,11 +65,11 @@ export default function AgentsPage() {
       <div className="flex items-center justify-between">
         <p className="text-sm text-text-secondary">{data.length} agents registered</p>
         <div className="flex gap-2">
-          <Button variant="default" size="sm">
+          <Button variant="default" size="sm" onClick={handleDeployAgent}>
             <Plus className="h-4 w-4 mr-1" />
             {t('agents.deploy')}
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" onClick={fetchAgents}>
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>

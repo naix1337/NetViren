@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { usePathname } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
@@ -40,12 +41,45 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const t = useTranslations();
+  const router = useRouter();
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = React.useState(collapsed);
+  const [lang, setLang] = React.useState<'DE' | 'EN'>('EN');
 
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
     onToggle?.();
+  };
+
+  const handleLogout = async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (token) {
+      try {
+        await fetch('/api/auth/set-session', {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch (err) {
+        console.error('Logout API call failed:', err);
+      }
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+    }
+    router.push('/login');
+  };
+
+  const handleLanguageSwitch = () => {
+    const newLang = lang === 'DE' ? 'EN' : 'DE';
+    setLang(newLang);
+    const pathParts = pathname.split('/').filter(Boolean);
+    if (pathParts.length >= 1 && ['en', 'de'].includes(pathParts[0])) {
+      pathParts[0] = newLang.toLowerCase();
+    } else {
+      pathParts.unshift(newLang.toLowerCase());
+    }
+    router.push('/' + pathParts.join('/'));
+    console.log(`Language switched to ${newLang}`);
   };
 
   return (
@@ -110,13 +144,19 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         </button>
 
         {/* Language switch */}
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-text-secondary hover:bg-hover hover:text-text-primary transition-colors mt-1">
+        <button
+          onClick={handleLanguageSwitch}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-text-secondary hover:bg-hover hover:text-text-primary transition-colors mt-1"
+        >
           <Languages className="h-4 w-4" />
-          {!isCollapsed && <span>DE / EN</span>}
+          {!isCollapsed && <span>{lang} / {lang === 'DE' ? 'EN' : 'DE'}</span>}
         </button>
 
         {/* Logout */}
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-text-secondary hover:bg-hover hover:text-accent-red transition-colors mt-1">
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-text-secondary hover:bg-hover hover:text-accent-red transition-colors mt-1"
+        >
           <LogOut className="h-4 w-4" />
           {!isCollapsed && <span>{t('auth.logout')}</span>}
         </button>

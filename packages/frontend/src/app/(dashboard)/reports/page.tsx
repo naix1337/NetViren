@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { api } from '@/lib/api-client';
 import { FileText, Download, Plus, RefreshCw, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { formatBytes } from '@/lib/utils';
 
@@ -34,16 +36,17 @@ const statusIcons: Record<string, React.ReactNode> = {
 
 export default function ReportsPage() {
   const t = useTranslations();
+  const router = useRouter();
   const [loading, setLoading] = React.useState(true);
   const [data, setData] = React.useState<any[]>([]);
   const [error, setError] = React.useState(false);
+  const [generating, setGenerating] = React.useState(false);
+  const [feedback, setFeedback] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  React.useEffect(() => {
-    fetch('/api/reports')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch');
-        return res.json();
-      })
+  const fetchReports = React.useCallback(() => {
+    setLoading(true);
+    setError(false);
+    api.get('/api/reports')
       .then((json) => {
         setData(json.reports || []);
         setLoading(false);
@@ -53,6 +56,38 @@ export default function ReportsPage() {
         setLoading(false);
       });
   }, []);
+
+  React.useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
+
+  const handleGenerateReport = async () => {
+    setGenerating(true);
+    setFeedback(null);
+    try {
+      const newReport = await api.post('/api/reports/generate', {
+        reportType: 'daily',
+        periodStart: new Date().toISOString().split('T')[0],
+        periodEnd: new Date().toISOString().split('T')[0],
+      });
+      setData((prev) => [newReport, ...prev]);
+      setFeedback({ type: 'success', message: 'Report generated successfully.' });
+      setTimeout(() => setFeedback(null), 3000);
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Failed to generate report' });
+      setTimeout(() => setFeedback(null), 3000);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleDownloadPdf = (reportId: string, status: string) => {
+    if (status === 'completed') {
+      router.push(`/api/reports/${reportId}/download`);
+    } else {
+      alert('Report generation still in progress');
+    }
+  };
 
   if (loading) {
     return (
@@ -77,15 +112,26 @@ export default function ReportsPage() {
       <div className="flex items-center justify-between">
         <p className="text-sm text-text-secondary">{data.length} reports</p>
         <div className="flex gap-2">
-          <Button variant="default" size="sm">
+          <Button variant="default" size="sm" onClick={handleGenerateReport} disabled={generating}>
             <Plus className="h-4 w-4 mr-1" />
-            {t('reports.generate')}
+            {generating ? 'Generating...' : t('reports.generate')}
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" onClick={fetchReports}>
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
       </div>
+
+      {/* Feedback */}
+      {feedback && (
+        <div className={`px-4 py-3 rounded-lg text-sm font-medium ${
+          feedback.type === 'success'
+            ? 'bg-accent-emerald/10 text-accent-emerald border border-accent-emerald/20'
+            : 'bg-accent-red/10 text-accent-red border border-accent-red/20'
+        }`}>
+          {feedback.message}
+        </div>
+      )}
 
       {/* Reports Table */}
       <Card>
@@ -144,6 +190,7 @@ export default function ReportsPage() {
                         size="sm"
                         disabled={report.status !== 'completed'}
                         className="text-accent-cyan"
+                        onClick={() => handleDownloadPdf(report.id, report.status)}
                       >
                         <Download className="h-3.5 w-3.5 mr-1" />
                         PDF
