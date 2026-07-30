@@ -6,10 +6,10 @@ set -euo pipefail
 # Install Script
 # ═══════════════════════════════════════════════
 # One-liner:
-#   bash <(curl -sSL https://github.com/naix1337/networkvirusscanner/raw/master/install.sh)
+#   bash <(curl -sSL https://github.com/naix1337/NetViren/raw/master/install.sh)
 # ═══════════════════════════════════════════════
 
-REPO="https://github.com/naix1337/networkvirusscanner.git"
+REPO="https://github.com/naix1337/NetViren.git"
 NETVIREN_DIR="/opt/netviren"
 DB_DIR="/var/lib/netviren/db"
 PACKET_DIR="/var/lib/netviren/packets"

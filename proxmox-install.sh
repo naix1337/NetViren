@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════
 # NetViren - Proxmox VE Installer
-# https://github.com/naix1337/networkvirusscanner
+# https://github.com/naix1337/NetViren
 # ═══════════════════════════════════════════════════════════
-# Usage: bash <(curl -sSL https://github.com/naix1337/networkvirusscanner/raw/master/proxmox-install.sh)
+# Usage: bash <(curl -sSL https://github.com/naix1337/NetViren/raw/master/proxmox-install.sh)
 # ═══════════════════════════════════════════════════════════
 
 export NEWT_COLORS='
@@ -213,7 +213,7 @@ pct exec "$CT_ID" -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq 2>&1 | tail -2
   apt-get install -y -qq curl git openssl locales 2>&1 | tail -3
-  bash <(curl -sSL https://github.com/naix1337/networkvirusscanner/raw/master/install.sh) </dev/null
+  bash <(curl -sSL https://github.com/naix1337/NetViren/raw/master/install.sh) </dev/null
 ' >"$LOG" 2>&1 &
 INSTALL_PID=$!
 
