@@ -7,8 +7,8 @@
 ![Python](https://img.shields.io/badge/Python-3-3776AB?logo=python)
 ![SQLite](https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue)
-
 [![wakatime](https://wakatime.com/badge/github/naix1337/NetViren.svg)](https://wakatime.com/badge/github/naix1337/NetViren)
+
 > **Eine professionelle, selbstgehostete Network Security Platform für Netzwerküberwachung, Bedrohungserkennung, Paketanalyse und Sicherheits-Monitoring.**  
 > Entwickelt für den Betrieb auf Debian/Ubuntu Servern — nativ, ohne Docker.
 
