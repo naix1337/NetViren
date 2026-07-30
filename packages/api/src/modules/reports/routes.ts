@@ -22,9 +22,10 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/api/reports/generate', async (req, reply) => {
-    const { title, reportType, periodStart, periodEnd } = req.body as {
-      title?: string; reportType?: string; periodStart?: string; periodEnd?: string;
+    const { reportType, periodStart, periodEnd } = req.body as {
+      reportType?: string; periodStart?: string; periodEnd?: string;
     };
+    let title = (req.body as any).title as string | undefined;
     if (!reportType || !periodStart || !periodEnd) {
       return reply.status(400).send({ error: 'Bad Request', message: 'reportType, periodStart, and periodEnd are required' });
     }
