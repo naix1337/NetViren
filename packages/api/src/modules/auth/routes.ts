@@ -54,7 +54,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     if (!token) {
       return reply.status(400).send({ error: 'Bad Request', message: 'token is required' });
     }
-    const isSecure = req.headers['x-forwarded-proto'] === 'https';
+    const isSecure = req.protocol === 'https';
     reply.setCookie('netviren_token', token, {
       httpOnly: true,
       secure: isSecure,

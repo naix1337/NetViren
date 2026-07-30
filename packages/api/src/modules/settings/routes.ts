@@ -44,8 +44,21 @@ export async function settingRoutes(app: FastifyInstance): Promise<void> {
     if (!webhookUrl) {
       return reply.status(400).send({ error: 'Bad Request', message: 'webhookUrl is required' });
     }
+    // Validate webhook URL to prevent SSRF
+    let parsedUrl: URL;
     try {
-      const response = await fetch(webhookUrl, {
+      parsedUrl = new URL(webhookUrl);
+    } catch {
+      return reply.status(400).send({ error: 'Bad Request', message: 'Invalid webhook URL' });
+    }
+    if (parsedUrl.protocol !== 'https:') {
+      return reply.status(400).send({ error: 'Bad Request', message: 'Webhook URL must use HTTPS' });
+    }
+    if (!parsedUrl.hostname.endsWith('discord.com') && !parsedUrl.hostname.endsWith('discordapp.com')) {
+      return reply.status(400).send({ error: 'Bad Request', message: 'Webhook URL must be a Discord webhook' });
+    }
+    try {
+      const response = await fetch(webhookUrl, { redirect: 'manual',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
