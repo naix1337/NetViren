@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
+import { api } from '@/lib/api-client';
 import { Select } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusPulse } from '@/components/shared/StatusPulse';
@@ -38,13 +39,10 @@ export default function TimelinePage() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [alertsRes, scansRes] = await Promise.all([
-          fetch('/api/alerts'),
-          fetch('/api/scans'),
+        const [alertsData, scansData] = await Promise.all([
+          api.get('/api/alerts').catch(() => ({ alerts: [] })),
+          api.get('/api/scans').catch(() => ({ scans: [] })),
         ]);
-
-        const alertsData = alertsRes.ok ? await alertsRes.json() : { alerts: [] };
-        const scansData = scansRes.ok ? await scansRes.json() : { scans: [] };
         const alerts = alertsData.alerts || [];
         const scans = scansData.scans || [];
 

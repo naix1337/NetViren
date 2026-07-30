@@ -67,7 +67,7 @@ export default function FilesPage() {
     setVtLoading(fileId);
     setFeedback(null);
     try {
-      const result = await api.post('/api/vt/lookup', { hash: sha256 });
+      const result = await api.get(`/api/vt/lookup?type=hash&value=${encodeURIComponent(sha256)}`);
       setVtResults((prev) => ({ ...prev, [fileId]: result }));
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'VT lookup failed' });
@@ -121,6 +121,12 @@ export default function FilesPage() {
         <Button variant="default" size="sm" onClick={handleUploadClick}>
           <Upload className="h-4 w-4 mr-1" />
           {t('files.upload_file')}
+        </Button>
+        <Button variant="outline" size="sm" onClick={fetchFiles}>
+          <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Refresh
         </Button>
         <Button variant="ghost" size="icon" onClick={fetchFiles}>
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -193,7 +199,11 @@ export default function FilesPage() {
                         )}
                       </Button>
                       {vtResults[file.id] && (
-                        <span className="ml-2 text-xs font-medium text-accent-emerald">Scanned</span>
+                        <span className="ml-2 text-xs font-medium text-accent-emerald">
+                          {vtResults[file.id].result?.maliciousCount != null
+                            ? `${vtResults[file.id].result.maliciousCount}/${vtResults[file.id].result.totalVendors}`
+                            : 'Scanned'}
+                        </span>
                       )}
                     </TableCell>
                   </TableRow>

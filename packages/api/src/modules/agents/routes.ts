@@ -12,7 +12,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     if (path === '/api/agents/register' || path.match(/^\/api\/agents\/[^/]+\/heartbeat$/)) {
       return; // Allow without JWT
     }
-    if (path.startsWith('/api/agents/')) {
+    if (path.startsWith('/api/agents')) {
       await authMiddleware(req, reply);
       if (reply.sent) return;
     }

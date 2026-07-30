@@ -25,8 +25,11 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     const { title, reportType, periodStart, periodEnd } = req.body as {
       title?: string; reportType?: string; periodStart?: string; periodEnd?: string;
     };
-    if (!title || !reportType || !periodStart || !periodEnd) {
-      return reply.status(400).send({ error: 'Bad Request', message: 'title, reportType, periodStart, and periodEnd are required' });
+    if (!reportType || !periodStart || !periodEnd) {
+      return reply.status(400).send({ error: 'Bad Request', message: 'reportType, periodStart, and periodEnd are required' });
+    }
+    if (!title) {
+      title = `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report - ${periodStart}`;
     }
     if (!['daily', 'manual'].includes(reportType)) {
       return reply.status(400).send({ error: 'Bad Request', message: 'reportType must be daily or manual' });
@@ -71,7 +74,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     const filePath = report.file_path;
     if (!filePath) return reply.status(404).send({ error: 'File not found' });
     // Validate path to prevent path traversal
-    const REPORT_DIR = process.env.PACKET_DIR || '/var/lib/netviren';
+    const REPORT_DIR = process.env.REPORT_DIR || process.env.PACKET_DIR || '/var/lib/netviren';
     let safePath: string;
     try {
       safePath = fs.realpathSync(path.resolve(filePath));

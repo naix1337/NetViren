@@ -18,12 +18,14 @@
 
 ### Auf einem Server (Debian/Ubuntu)
 ```bash
-bash <(curl -sSL https://github.com/naix1337/networkvirusscanner/raw/master/install.sh)
+bash <(curl -sSL https://github.com/naix1337/NetViren/raw/master/install.sh)
+
+bash <(curl -sSL https://github.com/naix1337/NetViren/raw/master/update.sh)
 ```
 
 ### Auf Proxmox VE (LXC Container)
 ```bash
-bash <(curl -sSL https://github.com/naix1337/networkvirusscanner/raw/master/proxmox-install.sh)
+bash <(curl -sSL https://github.com/naix1337/NetViren/raw/master/proxmox-install.sh)
 ```
 Dann im Menü: Einstellungen anpassen → `I` drücken → fertig.
 
@@ -119,11 +121,11 @@ Dann im Menü: Einstellungen anpassen → `I` drücken → fertig.
 
 ---
 
-## 👨‍💻 Entwicklung
+## 🛠️ Entwicklung
 
 ```bash
 # Repository klonen
-git clone https://github.com/naix1337/network-analyser.git
+git clone https://github.com/naix1337/NetViren.git
 cd netviren
 
 # Dependencies installieren

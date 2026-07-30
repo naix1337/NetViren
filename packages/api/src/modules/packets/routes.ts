@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { getDb } from '../../db/connection.js';
 import { authMiddleware, requireRole } from '../../middleware/auth.js';
+import { broadcast } from '../../websocket/handler.js';
 import { nanoid } from 'nanoid';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -72,5 +73,22 @@ export async function packetRoutes(app: FastifyInstance): Promise<void> {
     }
     db.prepare('DELETE FROM packet_captures WHERE id = ?').run(id);
     return reply.status(204).send();
+  });
+
+  app.post('/api/packets', async (req, reply) => {
+    const { interfaceName, duration } = req.body as { interfaceName?: string; duration?: number };
+    if (!interfaceName || !duration) {
+      return reply.status(400).send({ error: 'Bad Request', message: 'interfaceName and duration are required' });
+    }
+    const id = nanoid();
+    const db = getDb();
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO packet_captures (id, interface_name, duration, status, started_at)
+      VALUES (?, ?, ?, 'running', ?)
+    `).run(id, interfaceName, duration, now);
+    const packet = db.prepare('SELECT * FROM packet_captures WHERE id = ?').get(id);
+    broadcast('packet:started', packet);
+    return reply.status(201).send(packet);
   });
 }
