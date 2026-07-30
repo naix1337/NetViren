@@ -1,10 +1,8 @@
 async function fetchApi(path: string, options?: RequestInit) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const res = await fetch(path, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
   });
@@ -28,10 +26,8 @@ export const api = {
     fetchApi(path, { method: 'PUT', body: JSON.stringify(body) }),
   delete: (path: string) => fetchApi(path, { method: 'DELETE' }),
   upload: async (path: string, formData: FormData) => {
-    const token = localStorage.getItem('token');
     const res = await fetch(path, {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
     });
     if (!res.ok) throw new Error('Upload failed');

@@ -36,9 +36,8 @@ export default function LoginPage() {
       }
 
       const data = await res.json();
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      // Set httpOnly JWT cookie via server route (for middleware auth check)
+      // Auth is handled by httpOnly cookie (set via server route below)
+      // No localStorage token storage needed
       await fetch('/api/auth/set-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -37,4 +37,33 @@ export async function settingRoutes(app: FastifyInstance): Promise<void> {
 
   app.put('/api/settings', updateSettings);
   app.post('/api/settings', updateSettings);
+
+  // Test Discord webhook
+  app.post('/api/settings/test-webhook', async (req, reply) => {
+    const { webhookUrl } = req.body as { webhookUrl?: string };
+    if (!webhookUrl) {
+      return reply.status(400).send({ error: 'Bad Request', message: 'webhookUrl is required' });
+    }
+    try {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: 'NetViren Test Notification',
+          embeds: [{
+            title: 'Webhook Test',
+            description: 'This is a test message from NetViren to verify your Discord webhook configuration.',
+            color: 0x00ff00,
+            timestamp: new Date().toISOString(),
+          }],
+        }),
+      });
+      if (!response.ok) {
+        return reply.status(400).send({ error: 'Webhook failed', message: `Discord responded with status ${response.status}` });
+      }
+      return { success: true, message: 'Test webhook sent successfully' };
+    } catch (err: any) {
+      return reply.status(500).send({ error: 'Webhook error', message: err.message || 'Failed to send test webhook' });
+    }
+  });
 }

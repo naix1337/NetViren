@@ -24,6 +24,7 @@ const envSchema = z.object({
   PACKET_RETENTION_DAYS: z.coerce.number().default(7),
   LOG_LEVEL: z.string().default('info'),
   NODE_ENV: z.enum(['development', 'production']).default('production'),
+  AGENT_SECRET: z.string().default(''),
 });
 
 export type Env = z.infer<typeof envSchema>;

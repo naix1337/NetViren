@@ -76,17 +76,26 @@ export async function packetRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/api/packets', async (req, reply) => {
-    const { interfaceName, duration } = req.body as { interfaceName?: string; duration?: number };
+    const { interfaceName, duration, sourceIp } = req.body as { interfaceName?: string; duration?: number; sourceIp?: string };
     if (!interfaceName || !duration) {
       return reply.status(400).send({ error: 'Bad Request', message: 'interfaceName and duration are required' });
     }
     const id = nanoid();
     const db = getDb();
     const now = new Date().toISOString();
+
+    // Calculate expires_at based on retention days setting
+    const settingsRow = db.prepare("SELECT value FROM settings WHERE key = 'packet_retention_days'").get() as any;
+    const retentionDays = settingsRow ? parseInt(settingsRow.value, 10) : 7;
+    const expiresAt = new Date(Date.now() + retentionDays * 24 * 60 * 60 * 1000).toISOString();
+
+    // file_path will be set by the worker; use placeholder
+    const filePath = `/var/lib/netviren/packets/${id}.pcap`;
+
     db.prepare(`
-      INSERT INTO packet_captures (id, interface_name, duration, status, started_at)
-      VALUES (?, ?, ?, 'running', ?)
-    `).run(id, interfaceName, duration, now);
+      INSERT INTO packet_captures (id, interface_name, duration_seconds, status, started_at, source_ip, file_path, expires_at)
+      VALUES (?, ?, ?, 'capturing', ?, ?, ?, ?)
+    `).run(id, interfaceName, duration, now, sourceIp || '0.0.0.0', filePath, expiresAt);
     const packet = db.prepare('SELECT * FROM packet_captures WHERE id = ?').get(id);
     broadcast('packet:started', packet);
     return reply.status(201).send(packet);

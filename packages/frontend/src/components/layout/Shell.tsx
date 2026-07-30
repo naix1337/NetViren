@@ -54,11 +54,8 @@ export function Shell({ children }: ShellProps) {
   const [unreadCount, setUnreadCount] = React.useState<number>(0);
 
   const fetchUnreadCount = React.useCallback(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) return;
-    fetch('/api/alerts', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    // Auth is handled by httpOnly cookie — no manual token needed
+    fetch('/api/alerts')
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
         if (data) {

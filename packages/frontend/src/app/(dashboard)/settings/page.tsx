@@ -15,12 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 type SaveStatus = 'idle' | 'saving' | 'success' | 'error';
 
 function getAuthHeaders(): Record<string, string> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('token');
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
+  // Auth is handled by httpOnly cookie — no manual token needed
+  return { 'Content-Type': 'application/json' };
 }
 
 function GeneralTab() {

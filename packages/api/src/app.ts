@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import rateLimit from '@fastify/rate-limit';
 import multipart from '@fastify/multipart';
+import cookie from '@fastify/cookie';
 import { getEnv } from './config/env.js';
 import { getDb } from './db/connection.js';
 import { runMigrations } from './db/migrations/001-init.js';
@@ -30,6 +31,7 @@ export async function buildApp() {
   await app.register(websocket);
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
   await app.register(multipart, { limits: { fileSize: 500 * 1024 * 1024 } });
+  await app.register(cookie);
 
   setWsInstance(app);
 

@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { getDb } from '../../db/connection.js';
+import { getEnv } from '../../config/env.js';
 import { authMiddleware } from '../../middleware/auth.js';
 import { nanoid } from 'nanoid';
 import bcrypt from 'bcryptjs';
@@ -20,15 +21,21 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
 
   // Register a new agent (agent-to-server, uses shared secret in body)
   app.post('/api/agents/register', async (req, reply) => {
-    const { name, machineId, agentType, version, ipAddress, osVersion, publicKey, capabilities } = req.body as {
+    const { name, machineId, agentType, version, ipAddress, osVersion, publicKey, capabilities, registrationKey } = req.body as {
       name: string; machineId: string; agentType: string; version?: string;
-      ipAddress?: string; osVersion?: string; publicKey?: string; capabilities?: string;
+      ipAddress?: string; osVersion?: string; publicKey?: string; capabilities?: string; registrationKey?: string;
     };
     if (!name || !machineId || !agentType) {
       return reply.status(400).send({ error: 'Bad Request', message: 'name, machineId, and agentType are required' });
     }
     if (!['windows', 'linux'].includes(agentType)) {
       return reply.status(400).send({ error: 'Bad Request', message: 'agentType must be windows or linux' });
+    }
+
+    // If AGENT_SECRET is configured, require matching registrationKey
+    const agentSecret = getEnv().AGENT_SECRET;
+    if (agentSecret && registrationKey !== agentSecret) {
+      return reply.status(401).send({ error: 'Unauthorized', message: 'Invalid registration key' });
     }
     const db = getDb();
     const existing = db.prepare('SELECT * FROM agents WHERE machine_id = ?').get(machineId) as any;
@@ -108,6 +115,14 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     if (!agent) return reply.status(404).send({ error: 'Not found' });
     const connections = getDb().prepare('SELECT * FROM agent_connections WHERE agent_id = ? ORDER BY first_seen DESC').all(id);
     return { connections };
+  });
+
+  // Get agent commands (placeholder - command system TBD)
+  app.get('/api/agents/:id/commands', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const agent = getDb().prepare('SELECT id FROM agents WHERE id = ?').get(id);
+    if (!agent) return reply.status(404).send({ error: 'Not found' });
+    return { commands: [] };
   });
 
   // Delete an agent

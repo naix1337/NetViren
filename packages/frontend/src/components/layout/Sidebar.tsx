@@ -53,19 +53,11 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   };
 
   const handleLogout = async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (token) {
-      try {
-        await fetch('/api/auth/set-session', {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch (err) {
-        console.error('Logout API call failed:', err);
-      }
-    }
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
+    try {
+      // Auth is handled by httpOnly cookie — clear the session
+      await fetch('/api/auth/set-session', { method: 'DELETE' });
+    } catch (err) {
+      console.error('Logout API call failed:', err);
     }
     router.push('/login');
   };

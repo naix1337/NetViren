@@ -47,4 +47,33 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const user = db.prepare('SELECT id, username, email, role, avatar_url, is_active, created_at FROM users WHERE id = ?').get(req.user!.userId) as any;
     return { user: { ...user, avatarUrl: user.avatar_url, isActive: Boolean(user.is_active), createdAt: user.created_at } };
   });
+
+  // Public: set session cookie (for frontend to persist token in httpOnly cookie)
+  app.post('/api/auth/set-session', async (req, reply) => {
+    const { token } = req.body as { token?: string };
+    if (!token) {
+      return reply.status(400).send({ error: 'Bad Request', message: 'token is required' });
+    }
+    const isSecure = req.headers['x-forwarded-proto'] === 'https';
+    reply.setCookie('netviren_token', token, {
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
+    });
+    return { ok: true };
+  });
+
+  // Public: logout (clear session cookie)
+  app.post('/api/auth/logout', async (_req, reply) => {
+    reply.setCookie('netviren_token', '', {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 0,
+    });
+    return { ok: true };
+  });
 }

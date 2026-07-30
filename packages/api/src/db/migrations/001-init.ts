@@ -163,5 +163,19 @@ export function runMigrations(db: Database.Database): void {
       ('daily_report_time', '06:00'),
       ('threat_score_threshold', '5.0'),
       ('beaconing_detect_enabled', 'true');
+
+    CREATE INDEX IF NOT EXISTS idx_device_ports_device_id ON device_ports(device_id);
+    CREATE INDEX IF NOT EXISTS idx_scans_status ON scans(status);
+    CREATE INDEX IF NOT EXISTS idx_agents_machine_id ON agents(machine_id);
+    CREATE INDEX IF NOT EXISTS idx_agent_file_scans_agent_id ON agent_file_scans(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_agent_processes_agent_id ON agent_processes(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_agent_connections_agent_id ON agent_connections(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_packet_captures_agent_id ON packet_captures(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_packet_dns_queries_capture_id ON packet_dns_queries(capture_id);
+    CREATE INDEX IF NOT EXISTS idx_packet_connections_capture_id ON packet_connections(capture_id);
+    CREATE INDEX IF NOT EXISTS idx_vt_cache_expires_at ON vt_cache(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_alerts_severity ON alerts(severity);
+    CREATE INDEX IF NOT EXISTS idx_alerts_is_read ON alerts(is_read);
+    CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON alerts(created_at DESC);
   `);
 }
