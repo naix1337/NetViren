@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api-client';
+import { cn } from '@/lib/utils';
 import {
   Monitor,
   Scan,
@@ -136,7 +137,7 @@ export default function DashboardPage() {
   if (error) {
     return (
       <div className="flex items-center justify-center py-16 text-text-muted">
-        <p>Verbindung zum Server fehlgeschlagen</p>
+        <p>{t('dashboard.connection_failed')}</p>
       </div>
     );
   }
@@ -245,6 +246,3 @@ export default function DashboardPage() {
   );
 }
 
-function cn(...classes: (string | false | undefined | null)[]) {
-  return classes.filter(Boolean).join(' ');
-}

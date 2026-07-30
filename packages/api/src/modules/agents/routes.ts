@@ -8,7 +8,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
   // Agent registration and heartbeat use token-based auth (no JWT)
   // All other agent routes require JWT authentication
   app.addHook('preHandler', async (req, reply) => {
-    const path = req.url;
+    const path = req.url.split('?')[0];
     if (path === '/api/agents/register' || path.match(/^\/api\/agents\/[^/]+\/heartbeat$/)) {
       return; // Allow without JWT
     }

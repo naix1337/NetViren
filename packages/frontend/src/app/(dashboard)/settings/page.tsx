@@ -60,7 +60,7 @@ function GeneralTab() {
     setSaveStatus('saving');
     try {
       const res = await fetch('/api/settings', {
-        method: 'POST',
+        method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ language, timezone, compactMode }),
       });
@@ -201,7 +201,7 @@ function ScanningTab() {
     setSaveStatus('saving');
     try {
       const res = await fetch('/api/settings', {
-        method: 'POST',
+        method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           scanInterval: parseInt(scanInterval, 10),
@@ -333,7 +333,7 @@ function DiscordTab() {
     setSaveStatus('saving');
     try {
       const res = await fetch('/api/settings', {
-        method: 'POST',
+        method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           webhookUrl,

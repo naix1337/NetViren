@@ -14,6 +14,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/api/users', async (req, reply) => {
+    if (!req.body) return reply.status(400).send({ error: 'Bad Request', message: 'Request body is required' });
     const { username, email, password, role } = req.body as {
       username?: string; email?: string; password?: string; role?: string;
     };
@@ -41,13 +42,15 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       VALUES (?, ?, ?, ?, ?)
     `).run(id, username, email || null, passwordHash, role || 'viewer');
     const user = db.prepare('SELECT id, username, email, role, avatar_url, is_active, created_at FROM users WHERE id = ?').get(id) as any;
+    if (!user) return reply.status(500).send({ error: 'Internal Server Error', message: 'Failed to create user' });
     return reply.status(201).send({ user: { ...user, avatarUrl: user.avatar_url, isActive: Boolean(user.is_active), createdAt: user.created_at } });
   });
 
   app.patch('/api/users/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const { username, email, password, role, isActive } = req.body as {
-      username?: string; email?: string; password?: string; role?: string; isActive?: boolean;
+    if (!req.body) return reply.status(400).send({ error: 'Bad Request', message: 'Request body is required' });
+    const { username, email, password, role, active } = req.body as {
+      username?: string; email?: string; password?: string; role?: string; active?: boolean;
     };
     const db = getDb();
     const existing = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
@@ -70,7 +73,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     if (username !== undefined) { updates.push('username = ?'); values.push(username); }
     if (email !== undefined) { updates.push('email = ?'); values.push(email); }
     if (role !== undefined) { updates.push('role = ?'); values.push(role); }
-    if (isActive !== undefined) { updates.push('is_active = ?'); values.push(isActive ? 1 : 0); }
+    if (active !== undefined) { updates.push('is_active = ?'); values.push(active ? 1 : 0); }
     if (password !== undefined) {
       updates.push('password_hash = ?');
       values.push(await bcrypt.hash(password, 10));
@@ -81,11 +84,15 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
     }
     const user = db.prepare('SELECT id, username, email, role, avatar_url, is_active, created_at, updated_at FROM users WHERE id = ?').get(id) as any;
+    if (!user) return reply.status(404).send({ error: 'Not found' });
     return { user: { ...user, avatarUrl: user.avatar_url, isActive: Boolean(user.is_active), createdAt: user.created_at, updatedAt: user.updated_at } };
   });
 
   app.delete('/api/users/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
+    if (req.user!.userId === id) {
+      return reply.status(400).send({ error: 'Bad Request', message: 'Cannot delete your own account' });
+    }
     const db = getDb();
     const user = db.prepare('SELECT id FROM users WHERE id = ?').get(id);
     if (!user) return reply.status(404).send({ error: 'Not found' });

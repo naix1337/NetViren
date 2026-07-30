@@ -1,9 +1,12 @@
 import { z } from 'zod';
 import { config as loadDotenv } from 'dotenv';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 // Load .env from project root
-loadDotenv({ path: resolve(import.meta.dirname, '../../../../.env') });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+loadDotenv({ path: resolve(__dirname, '../../../../.env') });
 
 const envSchema = z.object({
   DATABASE_PATH: z.string().default('/var/lib/netviren/db/netviren.db'),

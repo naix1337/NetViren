@@ -3,9 +3,13 @@ import os
 
 DB_PATH = os.environ.get('DATABASE_PATH', '/var/lib/netviren/db/netviren.db')
 
+_connection = None
+
 
 def get_db() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    return conn
+    global _connection
+    if _connection is None:
+        _connection = sqlite3.connect(DB_PATH)
+        _connection.row_factory = sqlite3.Row
+        _connection.execute("PRAGMA journal_mode=WAL")
+    return _connection

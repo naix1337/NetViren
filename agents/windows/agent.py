@@ -27,7 +27,7 @@ logger = logging.getLogger('netviren-agent')
 # Windows config path under %APPDATA%
 CONFIG_PATH = os.path.join(os.environ.get('APPDATA', 'C:\\Windows\\System32\\config\\systemprofile\\AppData\\Roaming'),
                            'NetViren', 'agent.json')
-API_URL = os.environ.get('NETVIREN_API_URL', 'http://10.0.0.1:4001')
+API_URL = os.environ.get('NETVIREN_API_URL', 'http://10.0.0.1:4000')
 
 
 class NetVirenAgent:
@@ -84,6 +84,7 @@ class NetVirenAgent:
             'agentType': 'windows',
             'version': '1.0.0',
         })
+        resp.raise_for_status()
         data = resp.json()
         self.config['agent_id'] = data['agent']['id']
         self.config['token'] = data['agent']['auth_token']
@@ -222,33 +223,54 @@ class NetVirenAgent:
         #   - Or use pyshark with Npcap as the capture backend
         logger.warning("Npcap packet capture not yet implemented -- install Npcap and use scapy/pyshark")
 
+    def run_once(self, timeout=60):
+        """Single iteration of the agent loop (heartbeat + check commands)."""
+        try:
+            self.heartbeat()
+
+            # Check for commands
+            try:
+                resp = requests.get(
+                    f"{API_URL}/api/agents/{self.agent_id}/commands",
+                    headers={'Authorization': f'Bearer {self.token}'},
+                    timeout=10
+                )
+                if resp.ok:
+                    commands = resp.json().get('commands', [])
+                    for cmd in commands:
+                        logger.info(f"Received command: {cmd}")
+                        if isinstance(cmd, dict):
+                            command_type = cmd.get('command', '')
+                        elif isinstance(cmd, str):
+                            command_type = cmd
+                        else:
+                            command_type = ''
+                        if command_type == 'restart':
+                            logger.info("Restart command received, exiting...")
+                            sys.exit(0)
+                        elif command_type == 'update':
+                            logger.info("Update command requested")
+                        else:
+                            logger.warning(f"Unknown command: {command_type}")
+            except Exception:
+                pass
+        except Exception as e:
+            logger.error(f"Agent loop error: {e}")
+
     def run(self):
         """Main agent loop."""
         # Register if not registered
         if not self.agent_id:
-            self.register()
+            try:
+                self.register()
+            except Exception as e:
+                logger.error(f"Registration failed: {e}")
+                return
 
         logger.info("Agent running...")
         while True:
             try:
-                # Heartbeat
-                self.heartbeat()
-
-                # Check for commands
-                try:
-                    resp = requests.get(
-                        f"{API_URL}/api/agents/{self.agent_id}/commands",
-                        headers={'Authorization': f'Bearer {self.token}'},
-                        timeout=10
-                    )
-                    if resp.ok:
-                        commands = resp.json().get('commands', [])
-                        for cmd in commands:
-                            logger.info(f"Received command: {cmd}")
-                            # Handle commands (scan, capture, etc.)
-                except Exception:
-                    pass
-
+                self.run_once()
                 time.sleep(30)
             except Exception as e:
                 logger.error(f"Agent loop error: {e}")

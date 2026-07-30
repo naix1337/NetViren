@@ -39,8 +39,8 @@ def execute_scan(db, scan: Dict):
             parts = result.stdout.strip().split()
             if len(parts) >= 3:
                 via_idx = parts.index('via')
-                if via_idx + 2 < len(parts):
-                    dev = parts[via_idx + 2]
+                if via_idx + 3 < len(parts):
+                    dev = parts[via_idx + 3]
                     dev_result = subprocess.run(['ip', '-4', 'route', 'show', 'dev', dev], capture_output=True, text=True, timeout=5)
                     for line in dev_result.stdout.strip().split('\n'):
                         if '/' in line:
@@ -140,11 +140,11 @@ def execute_scan(db, scan: Dict):
 
 def run_continuous():
     """Continuous ARP monitoring for new/lost devices."""
-    db = get_db()
     known_ips = set()
 
     while True:
         try:
+            db = get_db()
             active_ips = {d['ip_address'] for d in scan_arp(timeout=2)}
             now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
 

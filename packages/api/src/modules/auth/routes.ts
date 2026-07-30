@@ -12,7 +12,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     if (!username || !password) {
       return reply.status(400).send({ error: 'Bad Request', message: 'Username and password required' });
     }
-    const user = getDb().prepare('SELECT * FROM users WHERE username = ?').get(username) as any;
+    const user = getDb().prepare('SELECT * FROM users WHERE username = ? AND is_active = 1').get(username) as any;
     if (!user) {
       return reply.status(401).send({ error: 'Unauthorized', message: 'Invalid credentials' });
     }

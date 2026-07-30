@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger('netviren-agent')
 
 CONFIG_PATH = '/etc/netviren-agent.json'
-API_URL = os.environ.get('NETVIREN_API_URL', 'http://10.0.0.1:4001')
+API_URL = os.environ.get('NETVIREN_API_URL', 'http://10.0.0.1:4000')
 
 class NetVirenAgent:
     def __init__(self):
@@ -53,6 +53,7 @@ class NetVirenAgent:
             'agentType': 'linux',
             'version': '1.0.0',
         })
+        resp.raise_for_status()
         data = resp.json()
         self.config['agent_id'] = data['agent']['id']
         self.config['token'] = data['agent']['auth_token']
@@ -160,7 +161,11 @@ class NetVirenAgent:
         """Main agent loop."""
         # Register if not registered
         if not self.agent_id:
-            self.register()
+            try:
+                self.register()
+            except Exception as e:
+                logger.error(f"Registration failed: {e}")
+                return
 
         logger.info("Agent running...")
         while True:
@@ -179,7 +184,19 @@ class NetVirenAgent:
                         commands = resp.json().get('commands', [])
                         for cmd in commands:
                             logger.info(f"Received command: {cmd}")
-                            # Handle commands (scan, capture, etc.)
+                            if isinstance(cmd, dict):
+                                command_type = cmd.get('command', '')
+                            elif isinstance(cmd, str):
+                                command_type = cmd
+                            else:
+                                command_type = ''
+                            if command_type == 'restart':
+                                logger.info("Restart command received, exiting...")
+                                sys.exit(0)
+                            elif command_type == 'update':
+                                logger.info("Update command requested")
+                            else:
+                                logger.warning(f"Unknown command: {command_type}")
                 except:
                     pass
 

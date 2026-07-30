@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/_next', '/api/auth/login', '/api/auth/set-session', '/favicon.ico'];
+const PUBLIC_PATHS = ['/login', '/_next', '/api/auth/login', '/api/auth/set-session', '/api/auth/google', '/api/auth/github', '/api/agents', '/favicon.ico'];
 const LOCALES = ['/de', '/en'];
 
 /**
@@ -28,7 +28,10 @@ export default function middleware(req: NextRequest) {
   // Check httpOnly JWT cookie (set by server, not spoofable by JS)
   const token = req.cookies.get('netviren_token')?.value;
   if (!token) {
-    return addSecurityHeaders(NextResponse.redirect(new URL('/login', req.url)));
+    // Preserve locale prefix in the redirect URL
+    const currentLocale = LOCALES.find(l => pathname === l || pathname.startsWith(l + '/'));
+    const loginPath = currentLocale ? `${currentLocale}/login` : '/login';
+    return addSecurityHeaders(NextResponse.redirect(new URL(loginPath, req.url)));
   }
 
   return addSecurityHeaders(NextResponse.next());
@@ -37,7 +40,6 @@ export default function middleware(req: NextRequest) {
 function addSecurityHeaders(res: NextResponse) {
   res.headers.set('X-Content-Type-Options', 'nosniff');
   res.headers.set('X-Frame-Options', 'DENY');
-  res.headers.set('X-XSS-Protection', '1; mode=block');
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   return res;
 }

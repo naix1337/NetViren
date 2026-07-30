@@ -9,6 +9,7 @@ Status:     python agent_service.py status
 
 import sys
 import os
+import logging
 
 import win32serviceutil
 import win32service
@@ -17,6 +18,8 @@ import servicemanager
 
 sys.path.append(os.path.dirname(__file__))
 from agent import NetVirenAgent
+
+logger = logging.getLogger('netviren-agent-service')
 
 
 class NetVirenAgentService(win32serviceutil.ServiceFramework):
@@ -48,7 +51,18 @@ class NetVirenAgentService(win32serviceutil.ServiceFramework):
             servicemanager.PYS_SERVICE_STARTED,
             (self._svc_name_, ''),
         )
-        self.agent.run()
+        # Register if not registered
+        if not self.agent.agent_id:
+            try:
+                self.agent.register()
+            except Exception as e:
+                logger.error(f"Registration failed: {e}")
+                return
+        while True:
+            self.agent.run_once(timeout=60)
+            # Wait for stop event with 30 second timeout (replaces time.sleep(30))
+            if win32event.WaitForSingleObject(self.stop_event, 30000) == win32event.WAIT_OBJECT_0:
+                break
 
 
 if __name__ == '__main__':

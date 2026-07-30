@@ -15,9 +15,10 @@ export async function settingRoutes(app: FastifyInstance): Promise<void> {
     return { settings };
   });
 
-  app.put('/api/settings', async (req, reply) => {
+  async function updateSettings(req: any, reply: any) {
+    if (!req.body) return reply.status(400).send({ error: 'Bad Request', message: 'Request body is required' });
     const { settings } = req.body as { settings: Record<string, string> };
-    if (!settings || typeof settings !== 'object') {
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
       return reply.status(400).send({ error: 'Bad Request', message: 'settings object is required' });
     }
     const db = getDb();
@@ -32,5 +33,8 @@ export async function settingRoutes(app: FastifyInstance): Promise<void> {
     });
     transaction(Object.entries(settings));
     return { success: true };
-  });
+  }
+
+  app.put('/api/settings', updateSettings);
+  app.post('/api/settings', updateSettings);
 }

@@ -1,10 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/i18n/routing';
 import { cn } from '@/lib/utils';
 import { usePathname } from '@/i18n/routing';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import Link from 'next/link';
 import {
   LayoutDashboard,
@@ -43,8 +43,9 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const t = useTranslations();
   const router = useRouter();
   const pathname = usePathname();
+  const locale = useLocale();
   const [isCollapsed, setIsCollapsed] = React.useState(collapsed);
-  const [lang, setLang] = React.useState<'DE' | 'EN'>('EN');
+  const [lang, setLang] = React.useState<'DE' | 'EN'>(locale.toUpperCase() as 'DE' | 'EN');
 
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
@@ -72,13 +73,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const handleLanguageSwitch = () => {
     const newLang = lang === 'DE' ? 'EN' : 'DE';
     setLang(newLang);
-    const pathParts = pathname.split('/').filter(Boolean);
-    if (pathParts.length >= 1 && ['en', 'de'].includes(pathParts[0])) {
-      pathParts[0] = newLang.toLowerCase();
-    } else {
-      pathParts.unshift(newLang.toLowerCase());
-    }
-    router.push('/' + pathParts.join('/'));
+    router.replace(pathname, { locale: newLang.toLowerCase() });
     console.log(`Language switched to ${newLang}`);
   };
 
